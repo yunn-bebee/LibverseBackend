@@ -10,12 +10,34 @@ enum UserRole: string
     
     public static function values(): array
     {
-        return array_column(self::cases(), 'value');
+        return array_map(fn($case) => $case->value, self::cases());
     }
 
-    // Add this method for default value
-    public static function default(): self
+    public static function options(): array
     {
-        return self::MEMBER;
+        return [
+            self::MEMBER->value => 'Regular Member',
+            self::MODERATOR->value => 'Content Moderator',
+            self::ADMIN->value => 'System Administrator',
+        ];
+    }
+
+    public function label(): string
+    {
+        return match($this) {
+            self::MEMBER => 'Regular Member',
+            self::MODERATOR => 'Content Moderator',
+            self::ADMIN => 'System Administrator',
+        };
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this === self::ADMIN;
+    }
+
+    public function isModeratorOrHigher(): bool
+    {
+        return $this === self::MODERATOR || $this === self::ADMIN;
     }
 }

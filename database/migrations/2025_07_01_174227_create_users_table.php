@@ -20,6 +20,7 @@ return new class extends Migration
         $table->string('password');
         $table->enum('role', UserRole::values())->default(UserRole::MEMBER->value);
         $table->date('date_of_birth');
+        $table->timestamp('email_verified_at')->nullable()->comment('Email verification timestamp');
         $table->rememberToken();
         $table->timestamps();
         });

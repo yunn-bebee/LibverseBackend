@@ -3,14 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class UserFollow extends Model
 {
-       protected $table = 'user_follows';
+     use HasFactory;    
+    protected $table = 'user_follows';
     
     protected $fillable = ['follower_id', 'followee_id'];
     
-    public $timestamps = true;
+   
 
     public function follower()
     {

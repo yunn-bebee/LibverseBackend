@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Book extends Model
 {
+     use HasFactory; 
     protected $fillable = [
         'library_book_id', 'isbn', 'title', 'author', 
         'cover_image', 'description', 'added_by', 'verified'

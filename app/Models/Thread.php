@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Thread extends Model
 {
+     use HasFactory; 
        protected $fillable = [
         'forum_id', 'user_id', 'title', 'content', 
         'post_type', 'is_pinned', 'is_locked', 'book_id'

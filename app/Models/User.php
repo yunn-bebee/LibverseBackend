@@ -6,21 +6,54 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-// use Laravel\Sanctum\HasApiTokens;
+use App\Enums\UserRole;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
-      use HasFactory, Notifiable;
-
+     
     protected $fillable = [
-        'member_id', 'uuid', 'username', 'email', 'password', 
-        'role', 'date_of_birth'
+        'member_id', 'uuid', 'username', 'email', 'password',  'approval_status', // Add this
+        'approved_at', // Add this
+        'role', 'date_of_birth', 'email_verified_at'
     ];
 
     protected $hidden = ['password', 'remember_token'];
+   
 
+    // Approval status checks
+    public function isPending(): bool
+    {
+        return $this->approval_status === 'pending';
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->approval_status === 'approved';
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->approval_status === 'rejected';
+    }
+
+    // Role checks
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRole::ADMIN->value;
+    }
+
+    public function isModerator(): bool
+    {
+        return $this->role === UserRole::MODERATOR->value;
+    }
+
+    public function isMember(): bool
+    {
+        return $this->role === UserRole::MEMBER->value;
+    }
     // Relationships
     public function profile()
     {

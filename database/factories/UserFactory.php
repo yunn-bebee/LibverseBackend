@@ -14,7 +14,7 @@ class UserFactory extends Factory
      public function definition()
     {
         return [
-            'member_id' => 'BCL-' . Str::random(8),
+            'member_id' => 'AYA-' . Str::random(6),
             'uuid' => Str::uuid(),
             'username' => $this->faker->unique()->userName,
             'email' => $this->faker->unique()->safeEmail,

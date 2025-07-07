@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Post extends Model
 {
+     use HasFactory; 
       protected $fillable = [
         'thread_id', 'user_id', 'content', 
         'is_flagged', 'parent_post_id', 'book_id'
