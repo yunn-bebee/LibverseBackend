@@ -1,6 +1,6 @@
 <?php
 // app/Http/Controllers/Api/V1/Admin/ApprovalController.php
-namespace App\Http\Controllers\Api\V1\Admin;
+namespace App\Http\Controllers\API\V1\Admin;
 
 use Illuminate\Routing\Controller;
 use App\Models\User;
