@@ -2,6 +2,7 @@
 
 namespace Modules\User\App\Resources;
 
+use Modules\User\App\Resources\UserProfileApiResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,17 @@ class UserApiResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return parent::toArray($request);
+        return [
+            'id' => $this->uuid,
+            'memberId' => $this->member_id,
+            'username' => $this->username,
+            'email' => $this->email,
+            'role' => $this->role,
+            'dateOfBirth' => $this->date_of_birth,
+            'approvedAt' => $this->approved_at,
+            'profile' => new UserProfileApiResource($this->whenLoaded('profile')),
+            'createdAt' => $this->created_at,
+            'updatedAt' => $this->updated_at,
+        ];
     }
 }

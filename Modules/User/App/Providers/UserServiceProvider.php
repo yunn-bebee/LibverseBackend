@@ -22,6 +22,11 @@ class UserServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Add this binding
+    $this->app->bind(
+        \Modules\User\App\Contracts\ProfileServiceInterface::class,
+        \Modules\User\App\Services\ProfileService::class
+    );
         $this->app->bind(UserServiceInterface::class, UserService::class);
         Route::middleware('api')
             ->prefix('api/v1')
