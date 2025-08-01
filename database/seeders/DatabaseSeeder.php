@@ -36,6 +36,8 @@ class DatabaseSeeder extends Seeder
                 'password' => Hash::make('password'),
                 'role' => UserRole::ADMIN->value,
                 'date_of_birth' => '1980-01-01',
+                'approval_status' => 'approved',
+                'approved_at' => now(), 
             ]
         );
 
@@ -72,7 +74,7 @@ class DatabaseSeeder extends Seeder
         // Create forums (all by moderator)
         $forumCategories = ['Students', 'Professionals', 'EFL', 'BookClubs', 'Events'];
         $forums = collect();
-        
+
         foreach ($forumCategories as $category) {
             $forums->push(Forum::firstOrCreate(
                 ['name' => $category . ' Forum'],
@@ -103,7 +105,7 @@ class DatabaseSeeder extends Seeder
         // Create event RSVPs
         foreach ($events as $event) {
             $attendees = $allUsers->random(rand(5, 15));
-            
+
             foreach ($attendees as $user) {
                 EventRsvp::firstOrCreate(
                     ['user_id' => $user->id, 'event_id' => $event->id],
@@ -127,39 +129,39 @@ class DatabaseSeeder extends Seeder
         // Add books to challenges
         foreach ($challenges as $challenge) {
             $challengeBooks = $books->random(rand(5, 10));
-            
+
             foreach ($challengeBooks as $book) {
                 ChallengeBook::firstOrCreate(
                     ['challenge_id' => $challenge->id, 'book_id' => $book->id],
                     ['added_by' => $moderator->id]
                 );
             }
-            
+
             // Add participants to challenges
             $participants = $allUsers->random(rand(10, 15));
-            
+
             foreach ($participants as $user) {
                 $userBooks = $challengeBooks->random(rand(1, 3));
-                
+
                 foreach ($userBooks as $book) {
                     $statuses = ['planned', 'reading', 'completed'];
                     $status = $statuses[array_rand($statuses)];
-                    
+
                     $startedAt = null;
                     $completedAt = null;
                     $userRating = null;
                     $review = null;
-                    
+
                     if ($status !== 'planned') {
                         $startedAt = now()->subDays(rand(1, 30));
                     }
-                    
+
                     if ($status === 'completed') {
                         $completedAt = now();
                         $userRating = rand(1, 5);
                         $review = fake()->paragraph();
                     }
-                    
+
                     UserChallengeBook::firstOrCreate(
                         [
                             'user_id' => $user->id,
@@ -181,7 +183,7 @@ class DatabaseSeeder extends Seeder
         // Assign badges to users
         foreach ($allUsers as $user) {
             $userBadges = $badges->random(rand(1, 3));
-            
+
             foreach ($userBadges as $badge) {
                 UserBadge::firstOrCreate(
                     ['user_id' => $user->id, 'badge_id' => $badge->id],
@@ -197,7 +199,7 @@ class DatabaseSeeder extends Seeder
         foreach ($allUsers as $user) {
             $followCount = rand(3, 8);
             $toFollow = $allUsers->where('id', '!=', $user->id)->random($followCount);
-            
+
             foreach ($toFollow as $followee) {
                 UserFollow::firstOrCreate(
                     ['follower_id' => $user->id, 'followee_id' => $followee->id]

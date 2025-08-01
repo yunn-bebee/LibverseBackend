@@ -2,13 +2,14 @@
 
 namespace Modules\Badge\App\Services;
 
+use App\Models\Badge;
 use Modules\Badge\App\Contracts\BadgeServiceInterface;
 
 class BadgeService implements BadgeServiceInterface
 {
     public function getAll()
     {
-        // TODO: Implement getAll() method
+       return Badge::all();
     }
 
     public function find(string $id)

@@ -20,8 +20,9 @@ class ForumServiceProvider extends ServiceProvider
            Route::middleware('api')
             ->prefix('api/v1')
             ->group(base_path('Modules/Forum/routes/api_v1.php'));
-        
+
         // Load module config
         $this->mergeConfigFrom(__DIR__.'/../../config/Forum.php', 'Forum');
     }
 }
+

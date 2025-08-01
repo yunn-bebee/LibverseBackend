@@ -1,63 +1,66 @@
 <?php
-
 namespace Modules\Forum\App\Http\Controller;
 
-use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Modules\Forum\App\Contracts\ForumServiceInterface;
 use Modules\Forum\App\Http\Requests\ForumRequest;
+use Modules\Forum\App\Http\Requests\ThreadRequest;
 use Modules\Forum\App\Resources\ForumApiResource;
+use Modules\Forum\App\Resources\ThreadApiResource;
 
 class ForumApiController extends Controller
 {
-    public function __construct(
-        protected ForumServiceInterface $ForumService
-    ) {}
+    protected $forumService;
 
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(): JsonResponse
+    public function __construct(ForumServiceInterface $forumService)
     {
-        $items = $this->ForumService->getAll();
-        return response()->json(ForumApiResource::collection($items));
+        $this->forumService = $forumService;
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    public function index(Request $request): JsonResponse
+    {
+        $filters = $request->query();
+        $perPage = $request->query('per_page', 20);
+        $forums = $this->forumService->getAll($filters, $perPage);
+        return response()->json(ForumApiResource::collection($forums));
+    }
+
     public function store(ForumRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $item = $this->ForumService->create($data);
-        return response()->json(new ForumApiResource($item), 201);
+        $forum = $this->forumService->create($request->validated());
+        return response()->json(new ForumApiResource($forum), 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id): JsonResponse
+    public function show(Forum $forum): JsonResponse
     {
-        $item = $this->ForumService->find($id);
-        return response()->json(new ForumApiResource($item));
+        return response()->json(new ForumApiResource($forum));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(ForumRequest $request, string $id): JsonResponse
+    public function update(Forum $forum, ForumRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $item = $this->ForumService->update($id, $data);
-        return response()->json(new ForumApiResource($item));
+        $forum = $this->forumService->update($forum->id, $request->validated());
+        return response()->json(new ForumApiResource($forum));
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id): JsonResponse
+    public function destroy(Forum $forum): JsonResponse
     {
-        $this->ForumService->delete($id);
-        return response()->json(['message' => 'Forum deleted successfully']);
+        $this->forumService->delete($forum->id);
+        return response()->json(null, 204);
+    }
+
+    public function getThreads(Forum $forum, Request $request): JsonResponse
+    {
+        $filters = $request->query();
+        $perPage = $request->query('per_page', 20);
+        $threads = $this->forumService->getThreads($forum, $filters, $perPage);
+        return response()->json(ThreadApiResource::collection($threads));
+    }
+
+    public function storeThread(Forum $forum, ThreadRequest $request): JsonResponse
+    {
+        $thread = $this->forumService->createThread($forum, $request->validated());
+        return response()->json(new ThreadApiResource($thread), 201);
     }
 }

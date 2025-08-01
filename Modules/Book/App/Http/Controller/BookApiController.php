@@ -21,7 +21,7 @@ class BookApiController extends Controller
     {
         $filters = $request->validated();
         $books = $this->bookService->getAll($filters);
-        
+
         return apiResponse(
             true,
             'Books retrieved successfully',
@@ -79,5 +79,24 @@ class BookApiController extends Controller
             true,
             'Book deleted successfully'
         );
+    }
+
+    public function verify(string $uuid): JsonResponse
+    {
+        try {
+            $book = $this->bookService->verify($uuid);
+            return apiResponse(
+                true,
+                'Book verified successfully',
+                new BookApiResource($book)
+            );
+        } catch (\Exception $e) {
+            return apiResponse(
+                false,
+                'Book not found',
+                null,
+                404
+            );
+        }
     }
 }
