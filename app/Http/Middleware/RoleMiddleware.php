@@ -12,7 +12,7 @@ class RoleMiddleware
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
         $user = $request->user();
-        
+
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
@@ -22,7 +22,7 @@ class RoleMiddleware
             // If $role is a valid UserRole case name, get its value; otherwise, use $role as is
             return UserRole::tryFrom($role)?->value ?? $role;
         }, $roles);
-    
+
 
         // Check if user's role matches any allowed roles (case-insensitive)
         $userRoleLower = strtolower($user->role);

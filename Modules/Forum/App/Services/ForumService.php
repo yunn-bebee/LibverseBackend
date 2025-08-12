@@ -10,7 +10,7 @@ class ForumService implements ForumServiceInterface
 {
     public function getAll(array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
-        $query = Forum::with(['createdBy', 'book'])->withCount('threads');
+        $query = Forum::with(['creator', 'book'])->withCount('threads');
 
         if (isset($filters['category'])) {
             $query->where('category', $filters['category']);

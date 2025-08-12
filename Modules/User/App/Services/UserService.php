@@ -17,30 +17,52 @@ class UserService implements UserServiceInterface
             ->first();
     }
 
-    public function getAll(): array
+    public function getAll(array $filters = [], bool $paginate = true, int $perPage = 20)
     {
-        return User::select([
-            'id',
-            'uuid',
-            'member_id',
-            'username',
-            'email',
-            'role',
-            'approval_status',
-            'created_at',
-            'approved_at',
-            'rejected_at',
-            'banned_at'
-        ])->get()->toArray();
+        $query = User::query()
+            ->select([
+                'id',
+                'uuid',
+                'member_id',
+                'username',
+                'email',
+                'role',
+                'approval_status',
+                'created_at',
+                'approved_at',
+                'rejected_at',
+                'banned_at'
+            ]);
+
+        // Apply filters
+        if (!empty($filters['search'])) {
+            $query->where(function($q) use ($filters) {
+                $q->where('username', 'like', "%{$filters['search']}%")
+                  ->orWhere('email', 'like', "%{$filters['search']}%")
+                  ->orWhere('member_id', 'like', "%{$filters['search']}%");
+            });
+        }
+
+        if (!empty($filters['role'])) {
+            $query->where('role', $filters['role']);
+        }
+
+        if (!empty($filters['status'])) {
+            $query->where('approval_status', $filters['status']);
+        }
+
+        return $paginate
+            ? $query->paginate($perPage)
+            : $query->get();
     }
 
     public function save(array $data): array
     {
         try {
             $validated = validator($data, [
-                'username' => 'required|string|max:255',
+                'username' => 'required|string|max:255|unique:users',
                 'email' => 'required|email|unique:users,email',
-                'password' => 'required|string|min:6',
+                'password' => 'required|string|min:8',
                 'member_id' => 'sometimes|string|unique:users,member_id',
                 'role' => 'sometimes|string|in:admin,moderator,member',
                 'date_of_birth' => 'nullable|date',
@@ -59,18 +81,14 @@ class UserService implements UserServiceInterface
 
             return [
                 'success' => true,
-                'message' => 'User created successfully. Pending approval.',
-                'data' => $user->only(['uuid', 'member_id', 'username', 'email', 'role', 'approval_status', 'created_at']),
-                'errors' => [],
-                'meta' => ['timestamp' => now()->toDateTimeString()]
+                'user' => $user,
+                'message' => 'User created successfully. Pending approval.'
             ];
         } catch (ValidationException $e) {
             return [
                 'success' => false,
-                'message' => 'Validation failed',
-                'data' => null,
                 'errors' => $e->errors(),
-                'meta' => ['timestamp' => now()->toDateTimeString()]
+                'message' => 'Validation failed'
             ];
         }
     }
@@ -81,77 +99,41 @@ class UserService implements UserServiceInterface
 
         try {
             $validated = validator($data, [
-                'username' => 'sometimes|string|max:255',
-                'email' => 'sometimes|email|unique:users,email,' . $user->id,
-                'password' => 'sometimes|string|min:6',
+                'username' => 'sometimes|string|max:255|unique:users,username,'.$user->id,
+                'email' => 'sometimes|email|unique:users,email,'.$user->id,
+                'password' => 'sometimes|string|min:8',
                 'role' => 'sometimes|string|in:admin,moderator,member',
                 'date_of_birth' => 'nullable|date',
                 'approval_status' => 'sometimes|string|in:pending,approved,rejected,banned',
             ])->validate();
 
-            $updateData = [];
-            if (isset($validated['username'])) {
-                $updateData['username'] = $validated['username'];
-            }
-            if (isset($validated['email'])) {
-                $updateData['email'] = $validated['email'];
-            }
-            if (isset($validated['password'])) {
-                $updateData['password'] = Hash::make($validated['password']);
-            }
-            if (isset($validated['role'])) {
-                $updateData['role'] = $validated['role'];
-            }
-            if (isset($validated['date_of_birth'])) {
-                $updateData['date_of_birth'] = $validated['date_of_birth'];
-            }
-            if (isset($validated['approval_status'])) {
-                $updateData['approval_status'] = $validated['approval_status'];
-                if ($validated['approval_status'] === 'approved') {
-                    $updateData['approved_at'] = now();
-                    $updateData['rejected_at'] = null;
-                    $updateData['banned_at'] = null;
-                } elseif ($validated['approval_status'] === 'rejected') {
-                    $updateData['rejected_at'] = now();
-                    $updateData['approved_at'] = null;
-                    $updateData['banned_at'] = null;
-                } elseif ($validated['approval_status'] === 'banned') {
-                    $updateData['banned_at'] = now();
-                    $updateData['approved_at'] = null;
-                    $updateData['rejected_at'] = null;
-                    $user->tokens()->delete();
-                }
-            }
-
+            $updateData = $this->prepareUpdateData($validated, $user);
             $user->update($updateData);
 
             return [
                 'success' => true,
-                'message' => 'User updated successfully',
-                'data' => $user->only(['uuid', 'member_id', 'username', 'email', 'role', 'approval_status', 'created_at', 'approved_at', 'rejected_at', 'banned_at']),
-                'errors' => [],
-                'meta' => ['timestamp' => now()->toDateTimeString()]
+                'user' => $user,
+                'message' => 'User updated successfully'
             ];
         } catch (ValidationException $e) {
             return [
                 'success' => false,
-                'message' => 'Validation failed',
-                'data' => null,
                 'errors' => $e->errors(),
-                'meta' => ['timestamp' => now()->toDateTimeString()]
+                'message' => 'Validation failed'
             ];
         }
     }
 
-    public function delete($id): void
+    public function delete($id): bool
     {
         $user = User::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
-        $user->delete();
+        return $user->delete();
     }
 
-    public function banUser($id): void
+    public function banUser($id): bool
     {
         $user = User::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
+
         if ($user->approval_status === 'banned') {
             throw ValidationException::withMessages([
                 'user' => ['User is already banned']
@@ -165,7 +147,64 @@ class UserService implements UserServiceInterface
             'rejected_at' => null,
         ]);
 
-        // Revoke all tokens for the user
         $user->tokens()->delete();
+        return true;
+    }
+
+    private function prepareUpdateData(array $validated, User $user): array
+    {
+        $updateData = [];
+
+        if (isset($validated['username'])) {
+            $updateData['username'] = $validated['username'];
+        }
+
+        if (isset($validated['email'])) {
+            $updateData['email'] = $validated['email'];
+        }
+
+        if (isset($validated['password'])) {
+            $updateData['password'] = Hash::make($validated['password']);
+        }
+
+        if (isset($validated['role'])) {
+            $updateData['role'] = $validated['role'];
+        }
+
+        if (isset($validated['date_of_birth'])) {
+            $updateData['date_of_birth'] = $validated['date_of_birth'];
+        }
+
+        if (isset($validated['approval_status'])) {
+            $updateData = array_merge($updateData, $this->handleApprovalStatus($validated['approval_status']));
+        }
+
+        return $updateData;
+    }
+
+    private function handleApprovalStatus(string $status): array
+    {
+        $data = [
+            'approval_status' => $status,
+            'approved_at' => null,
+            'rejected_at' => null,
+            'banned_at' => null,
+        ];
+
+        $now = now();
+
+        switch ($status) {
+            case 'approved':
+                $data['approved_at'] = $now;
+                break;
+            case 'rejected':
+                $data['rejected_at'] = $now;
+                break;
+            case 'banned':
+                $data['banned_at'] = $now;
+                break;
+        }
+
+        return $data;
     }
 }

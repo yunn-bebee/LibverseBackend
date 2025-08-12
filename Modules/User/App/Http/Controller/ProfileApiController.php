@@ -2,42 +2,59 @@
 
 namespace Modules\User\App\Http\Controller;
 
-use Illuminate\Container\Attributes\Auth;
+use App\Models\User;
+use Modules\User\App\Services\ProfileService;
 use Illuminate\Http\Request;
-use Modules\User\App\Contracts\ProfileServiceInterface;
-use Modules\User\App\Resources\UserApiResource;
 use Illuminate\Routing\Controller;
-use Modules\User\App\Http\Requests\UpdateProfileRequest;
 
 class ProfileApiController extends Controller
 {
     protected $profileService;
 
-    public function __construct(ProfileServiceInterface $profileService)
+    public function __construct(ProfileService $profileService)
     {
         $this->profileService = $profileService;
     }
 
-    public function show(Request $request)
+    public function show(User $user)
     {
-        $user = $this->profileService->getUserProfile($request->user());
-        return apiResponse(true, 'Profile retrieved', new UserApiResource($user));
+        try {
+            $profile = $this->profileService->getUserProfile($user);
+            return apiResponse(true, 'Profile retrieved successfully', $profile);
+        } catch (\Exception $e) {
+            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 500);
+        }
     }
-/**
- * @param \App\Http\Requests\UpdateProfileRequest $request
- */
-    public function update(UpdateProfileRequest $request)
-{
-    $user = $request->user(); // or Auth::user(), both are fine if middleware is applied
 
-    $updatedUser = $this->profileService->updateUserProfile($user, $request->validated());
-
-    return apiResponse(true, 'Profile updated', new UserApiResource($updatedUser));
-}
-
-    public function destroy(Request $request)
+    public function update(Request $request, User $user)
     {
-        $this->profileService->deleteUserProfile($request->user() ,$request->input('password')  );
-        return apiResponse(true, 'User profile and account deleted successfully');
+        try {
+            $validated = $request->validate([
+                'username' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email|unique:users,email,'.$user->id,
+                'bio' => 'nullable|string',
+                'website' => 'nullable|url',
+                'location' => 'nullable|string',
+                'reading_preferences' => 'nullable|json',
+                'profile_picture' => 'nullable|image|max:2048',
+            ]);
+
+            $profile = $this->profileService->updateUserProfile($user, $validated);
+            return apiResponse(true, 'Profile updated successfully', $profile);
+        } catch (\Exception $e) {
+            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 400);
+        }
+    }
+
+    public function destroy(Request $request, User $user)
+    {
+        try {
+            $request->validate(['password' => 'required|string']);
+
+            $this->profileService->deleteUserProfile($user, $request->password);
+            return apiResponse(true, 'Profile deleted successfully');
+        } catch (\Exception $e) {
+            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 400);
+        }
     }
 }

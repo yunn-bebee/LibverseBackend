@@ -15,8 +15,8 @@ class ForumApiResource extends JsonResource
             'category' => $this->category,
             'is_public' => $this->is_public,
             'created_by' => [
-                'id' => $this->createdBy->id,
-                'name' => $this->createdBy->name,
+                'id' => $this->creator->id,
+                'name' => $this->creator->username,
             ],
             'book' => $this->book ? [
                 'id' => $this->book->id,

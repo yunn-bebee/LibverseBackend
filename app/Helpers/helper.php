@@ -3,7 +3,7 @@
 use Illuminate\Http\Request;
 
 if (!function_exists('apiResponse')) {
-    function apiResponse(bool $success, string $message = '', $data = null, int $statusCode = 200, array $errors = [])
+    function apiResponse(bool $success, string $message = '', $data = null, int $statusCode = 200, array $errors = [], array $more = [])
     {
         return response()->json([
             'success' => $success,
@@ -13,7 +13,8 @@ if (!function_exists('apiResponse')) {
             'meta'    => [
                 'timestamp' => now()->toISOString(),
                 'status'    => $statusCode
-            ]
+            ],
+            $more
         ], $statusCode);
     }
 }
