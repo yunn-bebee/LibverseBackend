@@ -1,9 +1,7 @@
 <?php
-// Modules/Book/App/Http/Requests/BookRequest.php
 namespace Modules\Book\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class BookRequest extends FormRequest
 {
@@ -14,19 +12,20 @@ class BookRequest extends FormRequest
 
     public function rules()
     {
-        $bookUuid = $this->route('book') ?? null; // For update
+        $bookId = $this->route('book');
 
         return [
-            'library_book_id' => ['nullable', 'string', 'max:50', Rule::unique('books', 'library_book_id')->ignore($bookUuid, 'uuid')],
-            'isbn' => ['nullable', 'string', 'max:20', Rule::unique('books', 'isbn')->ignore($bookUuid, 'uuid')],
-            'title' => ['required', 'string', 'max:255'],
-            'author' => ['required', 'string', 'max:255'],
-            'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'], // 2MB max
-            'description' => ['nullable', 'string'],
-            'publication_year' => ['nullable', 'integer', 'min:1900', 'max:' . date('Y')],
-            'genres' => ['nullable', 'array'],
-            'genres.*' => ['string', 'max:50'],
-            'verified' => ['sometimes', 'boolean'],
+            'library_book_id' => 'nullable|string|max:50|unique:books,library_book_id,'.$bookId,
+            'isbn' => 'nullable|string|max:20|unique:books,isbn,'.$bookId,
+            'title' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:255',
+            'author' => 'required|string|max:100',
+            'co_authors' => 'nullable|string|max:255',
+            'publisher' => 'nullable|string|max:100',
+            'publication_year' => 'nullable|integer|min:1900|max:'.date('Y'),
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'description' => 'nullable|string',
+            'genres' => 'nullable|array',
         ];
     }
 }

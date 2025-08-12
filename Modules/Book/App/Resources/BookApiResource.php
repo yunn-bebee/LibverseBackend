@@ -16,6 +16,7 @@ class BookApiResource extends JsonResource
             'author' => $this->author,
             'cover_image' => $this->cover_image,
             'description' => $this->description,
+            'genres' => $this->genre,
             'verified' => $this->verified,
             'added_by' => [
                 'id' => $this->addedBy?->id,

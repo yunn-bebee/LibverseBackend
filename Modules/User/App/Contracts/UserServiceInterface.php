@@ -2,10 +2,14 @@
 
 namespace Modules\User\App\Contracts;
 
-interface UserServiceInterface {
-    public function get($id);
-    public function getAll();
-    public function save();
-    public function update();
-    public function delete($id);
+use App\Models\User;
+
+interface UserServiceInterface
+{
+    public function get($id): ?User;
+    public function getAll(): array;
+    public function save(array $data): array;
+    public function update($id, array $data): array;
+    public function delete($id): void;
+    public function banUser($id): void;
 }

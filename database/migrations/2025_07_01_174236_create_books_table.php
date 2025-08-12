@@ -19,10 +19,10 @@ return new class extends Migration
         $table->string('author', 100);
         $table->string('cover_image')->nullable();
         $table->text('description')->nullable();
+       $table->json('genres')->nullable();
         $table->foreignId('added_by')->constrained('users')->onDelete('cascade');
-        $table->boolean('verified')->default(false);
-        $table->timestamps();
-        
+    $table->timestamps();
+
         $table->fullText(['title', 'author']);
     });
 }

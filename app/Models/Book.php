@@ -7,12 +7,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Book extends Model
 {
-     use HasFactory; 
-    protected $fillable = [
-        'library_book_id', 'isbn', 'title', 'author', 
-        'cover_image', 'description', 'added_by', 'verified'
-    ];
-
+     use HasFactory;
+   protected $fillable = [
+    'library_book_id',
+    'isbn',
+    'title',
+    'author',
+    'cover_image',
+    'description',
+    'genres',
+    'added_by'
+];
+protected $casts = [
+    'genres' => 'array',
+];
     public function addedBy()
     {
         return $this->belongsTo(User::class, 'added_by');

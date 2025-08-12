@@ -16,9 +16,7 @@ class BookSearchRequest extends FormRequest
         return [
             'search' => [ 'string', 'min:3', 'max:255'],
             'author' => ['nullable', 'string', 'max:255'],
-            'min_year' => ['nullable', 'integer', 'min:1900', 'max:' . date('Y')],
-            'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+          
         ];
     }
 }
