@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\Post\App\Resources;
+namespace Modules\Forum\App\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,12 +13,12 @@ class PostApiResource extends JsonResource
             'content' => $this->content,
             'is_flagged' => $this->is_flagged,
             'user' => [
-                'id' => $this->user?->id,
+                'id' => $this->user?->uuid,
                 'name' => $this->user?->name,
                 'email' => $this->user?->email,
             ],
             'book' => $this->whenLoaded('book', fn() => [
-                'uuid' => $this->book?->uuid,
+                'uuid' => $this->book?->id,
                 'title' => $this->book?->title,
                 'cover_image' => $this->book?->cover_image,
             ]),

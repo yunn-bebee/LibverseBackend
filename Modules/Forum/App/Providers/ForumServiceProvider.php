@@ -9,9 +9,14 @@ class ForumServiceProvider extends ServiceProvider
     public function register()
     {
         // Register module services
-        $this->app->bind(
+$this->app->bind(
             \Modules\Forum\App\Contracts\ForumServiceInterface::class,
             \Modules\Forum\App\Services\ForumService::class
+        );
+
+        $this->app->bind(
+            \Modules\Forum\App\Contracts\ThreadServiceInterface::class,
+            \Modules\Forum\App\Services\ThreadService::class
         );
     }
 

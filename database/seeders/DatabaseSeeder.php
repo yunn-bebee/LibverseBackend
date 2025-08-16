@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
                 'role' => UserRole::ADMIN->value,
                 'date_of_birth' => '1980-01-01',
                 'approval_status' => 'approved',
-                'approved_at' => now(), 
+                'approved_at' => now(),
             ]
         );
 
@@ -72,7 +72,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Create forums (all by moderator)
-        $forumCategories = ['Students', 'Professionals', 'EFL', 'BookClubs', 'Events'];
+        $forumCategories = ['Students', 'Professionals', 'EFL', 'BookClubs', 'Events', 'Studxents', 'Profesxsionals', 'ExFL', 'BooxkClubs', 'Exvents'];
         $forums = collect();
 
         foreach ($forumCategories as $category) {
@@ -88,6 +88,7 @@ class DatabaseSeeder extends Seeder
                 ]
             ));
         }
+
 
         // Create threads (in all forums by all users)
         $threads = Thread::factory(100)->create([
