@@ -16,13 +16,25 @@ class ThreadApiResource extends JsonResource
             'is_locked' => $this->is_locked,
             'user' => [
                 'id' => $this->user->id,
-                'name' => $this->user->name,
+                'name' => $this->user->username,
             ],
             'book' => $this->book ? [
                 'id' => $this->book->id,
                 'title' => $this->book->title,
             ] : null,
             'posts_count' => $this->posts_count,
+            'posts' => $this->posts->map(function ($post) {
+                return [
+                    'id' => $post->id,
+                    'content' => $post->content,
+                    'user' => [
+                        'id' => $post->user->id,
+                        'name' => $post->user->username,
+                    ],
+                    'created_at' => $post->created_at,
+                    'updated_at' => $post->updated_at,
+                ];
+            }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

@@ -21,7 +21,7 @@ use App\Models\UserProfile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-
+use App\Models\Post;
 class DatabaseSeeder extends Seeder
 {
     public function run()
@@ -71,8 +71,13 @@ class DatabaseSeeder extends Seeder
             'added_by' => fn() => rand(0, 4) === 0 ? $moderator->id : $users->random()->id
         ]);
 
-        // Create forums (all by moderator)
-        $forumCategories = ['Students', 'Professionals', 'EFL', 'BookClubs', 'Events', 'Studxents', 'Profesxsionals', 'ExFL', 'BooxkClubs', 'Exvents'];
+        // Create forums (20 total, all by moderator)
+        $forumCategories = [
+            'Students', 'Professionals', 'EFL', 'BookClubs', 'Events',
+            'Literature', 'Fiction', 'NonFiction', 'Poetry', 'SciFi',
+            'Fantasy', 'Mystery', 'Romance', 'History', 'Science',
+            'Technology', 'Writing', 'ReadingGroups', 'AuthorTalks', 'BookReviews'
+        ];
         $forums = collect();
 
         foreach ($forumCategories as $category) {
@@ -82,20 +87,42 @@ class DatabaseSeeder extends Seeder
                     'slug' => Str::slug($category),
                     'description' => fake()->sentence,
                     'category' => $category,
-                    'is_public' => true,
+                    'is_public' => rand(0, 1) ? true : false,
                     'created_by' => $moderator->id,
                     'book_id' => $books->random()->id
                 ]
             ));
         }
 
-
-        // Create threads (in all forums by all users)
-        $threads = Thread::factory(100)->create([
+        // Create threads (200 total, in all forums by all users)
+        $threads = Thread::factory(200)->create([
             'forum_id' => fn() => $forums->random()->id,
             'user_id' => fn() => $allUsers->random()->id,
             'book_id' => fn() => $books->random()->id
         ]);
+
+        // Create posts (5–15 top-level posts per thread, 2–5 replies for 50% of threads)
+        foreach ($threads as $thread) {
+            $postCount = rand(5, 15);
+            $posts = Post::factory($postCount)->create([
+                'thread_id' => $thread->id,
+                'user_id' => fn() => $allUsers->random()->id,
+                'book_id' => $books->random()->id,
+                'is_flagged' => fn() => rand(0, 9) === 0, // 10% chance of being flagged
+            ]);
+
+            if (rand(0, 1)) {
+                $replyCount = rand(2, 5);
+                Post::factory($replyCount)->reply()->create([
+                    'thread_id' => $thread->id,
+                    'user_id' => fn() => $allUsers->random()->id,
+                    'book_id' => $books->random()->id,
+                    'parent_post_id' => fn() => $posts->random()->id,
+                    'is_flagged' => fn() => rand(0, 9) === 0,
+                ]);
+            }
+        }
+
 
         // Create events (all by moderator)
         $events = Event::factory(15)->create([

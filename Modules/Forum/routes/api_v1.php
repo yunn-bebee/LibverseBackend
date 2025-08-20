@@ -3,9 +3,8 @@
 namespace Modules\Forum;
 
 use Illuminate\Support\Facades\Route;
-use Modules\Forum\App\Http\Controllers\ForumApiController;
+use Modules\Forum\App\Http\Controller\ForumApiController;
 
-Route::middleware('api')->prefix('api/v1')->group(function () {
     // Forum resource routes (index, store, show, update, destroy)
     Route::apiResource('forums', ForumApiController::class)->names([
         'index' => 'forum.index',
@@ -32,4 +31,4 @@ Route::middleware('api')->prefix('api/v1')->group(function () {
         // Toggle is_locked for a thread (POST /api/v1/forums/{forum}/threads/{thread}/toggle-lock)
         Route::post('threads/{thread}/toggle-lock', [ForumApiController::class, 'toggleThreadLock'])->name('forum.threads.toggle-lock');
     });
-});
+    Route::get('threads/{thread}', [ForumApiController::class, 'showThread'])->name('forum.threads.show');

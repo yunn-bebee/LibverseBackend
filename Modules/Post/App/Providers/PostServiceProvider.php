@@ -20,7 +20,7 @@ class PostServiceProvider extends ServiceProvider
            Route::middleware('api')
             ->prefix('api/v1')
             ->group(base_path('Modules/Post/routes/api_v1.php'));
-        
+
         // Load module config
         $this->mergeConfigFrom(__DIR__.'/../../config/Post.php', 'Post');
     }

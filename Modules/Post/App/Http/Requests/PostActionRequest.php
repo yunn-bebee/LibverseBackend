@@ -4,14 +4,12 @@ namespace Modules\Post\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class PostRequest extends FormRequest
+class PostActionRequest extends FormRequest
 {
     public function rules(): array
     {
         return [
-            'content' => 'required|string',
-            'parent_post_id' => 'nullable|exists:posts,id',
-            'book_id' => 'nullable|exists:books,id',
+            'action' => 'required|in:like,unlike,save,unsave',
         ];
     }
 

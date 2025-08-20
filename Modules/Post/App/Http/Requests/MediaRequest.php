@@ -4,14 +4,14 @@ namespace Modules\Post\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class PostRequest extends FormRequest
+class MediaRequest extends FormRequest
 {
     public function rules(): array
     {
         return [
-            'content' => 'required|string',
-            'parent_post_id' => 'nullable|exists:posts,id',
-            'book_id' => 'nullable|exists:books,id',
+            'file' => 'required|file|mimes:jpg,png,mp4,pdf|max:20480', // 20MB max
+            'caption' => 'nullable|string|max:255',
+            'thumbnail_url' => 'nullable|url',
         ];
     }
 

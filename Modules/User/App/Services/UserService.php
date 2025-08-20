@@ -30,9 +30,7 @@ class UserService implements UserServiceInterface
                 'approval_status',
                 'created_at',
                 'approved_at',
-                'rejected_at',
-                'banned_at'
-            ]);
+          ]);
 
         // Apply filters
         if (!empty($filters['search'])) {

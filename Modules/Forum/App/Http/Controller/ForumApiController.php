@@ -1,6 +1,7 @@
 <?php
 
-namespace Modules\Forum\App\Http\Controllers;
+
+namespace Modules\Forum\App\Http\Controller;
 
 use App\Http\Controllers\Controller;
 use App\Models\Forum;
@@ -139,6 +140,16 @@ class ForumApiController extends Controller
         );
     }
 
+    public function showThread(Thread $thread): JsonResponse
+    {
+        $thread = $this->threadService->getById($thread->id);
+
+        return apiResponse(
+            true,
+            'Thread retrieved successfully',
+            new ThreadApiResource($thread)
+        );
+    }
     /**
      * Toggle is_public for a forum.
      */

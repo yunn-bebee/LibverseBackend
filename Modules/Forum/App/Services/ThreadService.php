@@ -36,7 +36,7 @@ class ThreadService implements ThreadServiceInterface
     public function getByForum(Forum $forum, array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
         $query = Thread::where('forum_id', $forum->id)
-            ->with(['user', 'book'])
+            ->with(['user', 'book' , 'posts'])
             ->withCount('posts');
 
         if (isset($filters['post_type'])) {

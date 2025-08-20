@@ -36,7 +36,7 @@ class ForumService implements ForumServiceInterface
      */
     public function find(int $id): ?Forum
     {
-        return Forum::with(['creator', 'book', 'threads'])->findOrFail($id);
+        return Forum::with(['creator', 'book', 'threads'])->withCount('threads')->findOrFail($id);
     }
 
     /**

@@ -42,7 +42,7 @@ class ProfileApiController extends Controller
             $profile = $this->profileService->updateUserProfile($user, $validated);
             return apiResponse(true, 'Profile updated successfully', $profile);
         } catch (\Exception $e) {
-            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 400);
+            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 500);
         }
     }
 

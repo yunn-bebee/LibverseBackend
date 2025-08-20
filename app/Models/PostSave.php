@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PostSave extends Model
 {
-     use HasFactory; 
+     use HasFactory;
       protected $table = 'post_saves';
-    
+
     protected $fillable = ['user_id', 'post_id'];
-    
+
     public $timestamps = true;
 
     public function user()
