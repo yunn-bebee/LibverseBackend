@@ -7,10 +7,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ReadingChallenge extends Model
 {
-     use HasFactory; 
+     use HasFactory;
    protected $fillable = [
-        'name', 'slug', 'description', 'start_date', 
-        'end_date', 'target_count', 'badge_id', 
+        'name', 'slug', 'description', 'start_date',
+        'end_date', 'target_count', 'badge_id',
         'created_by', 'is_active'
     ];
 

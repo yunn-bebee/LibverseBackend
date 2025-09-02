@@ -32,14 +32,26 @@ class PostService implements PostServiceInterface
             'parent_post_id' => $post->parent_post_id,
         ]);
 
-        return $post;
+        return $post->load(['user', 'book', 'media', 'replies']);
     }
 
     public function getByThread(Thread $thread, array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
         $query = Post::where('thread_id', $thread->id)
-            ->with(['user', 'book', 'likes', 'replies'])
-            ->withCount('likes');
+            ->whereNull('parent_post_id') // Only get top-level posts
+            ->with([
+                'user',
+                'user.profile',
+                'book',
+                'media',
+                'replies.user',
+                'replies.user.profile',
+                'replies.media',
+                'replies.replies.user',
+                'replies.replies.user.profile',
+                'replies.replies.media'
+            ])
+            ->withCount(['likes', 'saves', 'replies']);
 
         if (isset($filters['is_flagged'])) {
             $query->where('is_flagged', filter_var($filters['is_flagged'], FILTER_VALIDATE_BOOLEAN));
@@ -51,19 +63,34 @@ class PostService implements PostServiceInterface
         return $query->paginate($perPage);
     }
 
-    public function find(string $id): ?Post
+    public function find(string $id): Post
     {
-        return Post::with(['user', 'book', 'likes', 'replies', 'media'])->findOrFail($id);
+        return Post::with([
+            'user',
+            'user.profile',
+            'book',
+            'media',
+            'replies.user',
+            'replies.user.profile',
+            'replies.media',
+            'replies.replies.user',
+            'replies.replies.user.profile',
+            'replies.replies.media'
+        ])
+        ->withCount(['likes', 'saves', 'replies'])
+        ->findOrFail($id);
     }
 
     public function update(Post $post, array $data): Post
     {
         $user = Auth::user();
-        if (!$user || ($post->user_id !== $user->id && !$user->hasRole('moderator'))) {
+
+        if (!$user || ($post->user_id !== $user->id && !$user->hasAnyRole(['moderator', 'admin']))) {
             throw new \Exception('Unauthorized to update post.');
         }
 
         $post->update($data);
+        $post->load(['user', 'book', 'media', 'replies']);
 
         Log::info('Post updated', [
             'post_id' => $post->id,
@@ -76,8 +103,20 @@ class PostService implements PostServiceInterface
     public function delete(Post $post): bool
     {
         $user = Auth::user();
-        if (!$user || ($post->user_id !== $user->id && !$user->hasRole('moderator'))) {
+
+        if (!$user || ($post->user_id !== $user->id && !$user->hasAnyRole(['moderator', 'admin']))) {
             throw new \Exception('Unauthorized to delete post.');
+        }
+
+        // Delete associated media files
+        foreach ($post->media as $media) {
+            if (Storage::disk('public')->exists($media->file_url)) {
+                Storage::disk('public')->delete($media->file_url);
+            }
+            if ($media->thumbnail_url && Storage::disk('public')->exists($media->thumbnail_url)) {
+                Storage::disk('public')->delete($media->thumbnail_url);
+            }
+            $media->delete();
         }
 
         $result = $post->delete();
@@ -98,7 +137,7 @@ class PostService implements PostServiceInterface
         }
 
         if ($like) {
-            $post->likes()->attach($user->id);
+            $post->likes()->syncWithoutDetaching([$user->id]);
             Log::info('Post liked', ['post_id' => $post->id, 'user_id' => $user->id]);
         } else {
             $post->likes()->detach($user->id);
@@ -116,7 +155,7 @@ class PostService implements PostServiceInterface
         }
 
         if ($save) {
-            $post->saves()->attach($user->id);
+            $post->saves()->syncWithoutDetaching([$user->id]);
             Log::info('Post saved', ['post_id' => $post->id, 'user_id' => $user->id]);
         } else {
             $post->saves()->detach($user->id);
@@ -145,13 +184,18 @@ class PostService implements PostServiceInterface
             'user_id' => $user->id,
         ]);
 
-        return $comment;
+        return $comment->load(['user', 'media']);
     }
 
     public function toggleFlag(Post $post): bool
     {
         $user = Auth::user();
         if (!$user) {
+            throw new \Exception('Unauthorized to flag post.');
+        }
+
+        // Only moderators/admins can flag/unflag posts
+        if (!$user->hasAnyRole(['moderator', 'admin'])) {
             throw new \Exception('Unauthorized to flag post.');
         }
 
@@ -177,13 +221,22 @@ class PostService implements PostServiceInterface
         $file = $data['file'];
         $allowedTypes = ['jpg', 'jpeg', 'png', 'mp4', 'pdf'];
         $extension = $file->getClientOriginalExtension();
+
         if (!in_array(strtolower($extension), $allowedTypes)) {
             throw new \Exception('Invalid file type. Allowed: JPG, PNG, MP4, PDF.');
         }
 
         $path = $file->store('media', 'public');
         $fileUrl = Storage::url($path);
-        $thumbnailUrl = in_array($extension, ['jpg', 'jpeg', 'png']) ? $fileUrl : ($data['thumbnail_url'] ?? null);
+
+        // Generate thumbnail for images
+        $thumbnailUrl = null;
+        if (in_array($extension, ['jpg', 'jpeg', 'png'])) {
+            // You would implement your thumbnail generation logic here
+            $thumbnailUrl = $fileUrl; // Placeholder - use intervention/image or similar in real implementation
+        } else {
+            $thumbnailUrl = $data['thumbnail_url'] ?? null;
+        }
 
         $media = Media::create([
             'post_id' => $post->id,

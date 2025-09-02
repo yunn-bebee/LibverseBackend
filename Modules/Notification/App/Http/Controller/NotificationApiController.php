@@ -2,62 +2,130 @@
 
 namespace Modules\Notification\App\Http\Controller;
 
-use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
 use Modules\Notification\App\Contracts\NotificationServiceInterface;
 use Modules\Notification\App\Http\Requests\NotificationRequest;
 use Modules\Notification\App\Resources\NotificationApiResource;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class NotificationApiController extends Controller
 {
-    public function __construct(
-        protected NotificationServiceInterface $NotificationService
-    ) {}
+    protected $notificationService;
 
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(): JsonResponse
+    public function __construct(NotificationServiceInterface $notificationService)
     {
-        $items = $this->NotificationService->getAll();
-        return response()->json(NotificationApiResource::collection($items));
+        $this->notificationService = $notificationService;
+
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(NotificationRequest $request): JsonResponse
+    public function index(Request $request)
     {
-        $data = $request->validated();
-        $item = $this->NotificationService->create($data);
-        return response()->json(new NotificationApiResource($item), 201);
+        $user = Auth::user();
+        $unreadOnly = $request->get('unread_only', false);
+        $perPage = $request->get('per_page', 15);
+
+        $notifications = $this->notificationService->getUserNotifications($user, $perPage, $unreadOnly);
+
+        return response()->json([
+            'success' => true,
+            'data' => NotificationApiResource::collection($notifications->items()),
+            'meta' => [
+                'current_page' => $notifications->currentPage(),
+                'per_page' => $notifications->perPage(),
+                'total' => $notifications->total(),
+                'unread_count' => $this->notificationService->getNotificationCount($user, true),
+            ]
+        ]);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id): JsonResponse
+        public function markAsRead($id)
     {
-        $item = $this->NotificationService->find($id);
-        return response()->json(new NotificationApiResource($item));
+        $user = Auth::user();
+        $success = $this->notificationService->markAsRead($user, $id);
+
+        if ($success) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Notification marked as read.'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Notification not found or already read.'
+        ], 404);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(NotificationRequest $request, string $id): JsonResponse
+    public function markAllAsRead()
     {
-        $data = $request->validated();
-        $item = $this->NotificationService->update($id, $data);
-        return response()->json(new NotificationApiResource($item));
+        $user = Auth::user();
+        $count = $this->notificationService->markAllAsRead($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$count} notifications marked as read.",
+            'data' => ['count' => $count]
+        ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id): JsonResponse
+    public function destroy($id)
     {
-        $this->NotificationService->delete($id);
-        return response()->json(['message' => 'Notification deleted successfully']);
+        $user = Auth::user();
+        $deleted = $this->notificationService->deleteNotification($user, $id);
+
+        if ($deleted) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Notification deleted.'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Notification not found.'
+        ], 404);
+    }
+public function clearAll()
+{
+    $user = Auth::user();
+    $deletedCount = $this->notificationService->clearAllNotifications($user);
+
+    return response()->json([
+        'success' => true,
+        'message' => "All notifications cleared successfully.",
+        'data' => ['deleted_count' => $deletedCount]
+    ]);
+}
+    public function counts()
+    {
+        $user = Auth::user();
+        $unreadCount = $this->notificationService->getNotificationCount($user, true);
+        $totalCount = $this->notificationService->getNotificationCount($user, false);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'unread_count' => $unreadCount,
+                'total_count' => $totalCount
+            ]
+        ]);
+    }
+
+    public function updatePreferences(NotificationRequest $request)
+    {
+        $user = Auth::user();
+        $validated = $request->validated();
+
+        $user->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notification preferences updated.',
+            'data' => [
+                'email_notifications' => $user->email_notifications,
+                'push_notifications' => $user->push_notifications
+            ]
+        ]);
     }
 }

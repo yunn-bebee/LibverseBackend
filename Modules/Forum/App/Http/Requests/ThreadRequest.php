@@ -2,12 +2,13 @@
 namespace Modules\Forum\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class ThreadRequest extends FormRequest
 {
     public function authorize()
     {
-        return auth()->check();
+        return Auth::check();
     }
 
     public function rules()

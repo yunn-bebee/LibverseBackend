@@ -14,7 +14,8 @@ class NotificationRequest extends FormRequest
     public function rules()
     {
         return [
-            // Validation rules
+            'email_notifications' => 'sometimes|boolean',
+            'push_notifications' => 'sometimes|boolean'
         ];
     }
 }

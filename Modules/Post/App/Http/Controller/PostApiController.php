@@ -32,7 +32,7 @@ class PostApiController extends Controller
                 success: true,
                 message: 'Posts retrieved successfully',
                 data: PostApiResource::collection($posts),
-               
+
                 errors: [],
                 paginator: $posts // Pass the LengthAwarePaginator directly
             );
@@ -87,19 +87,19 @@ class PostApiController extends Controller
     public function like(Post $post, PostActionRequest $request): JsonResponse
     {
         try {
-            $action = $request->input('action', 'like'); // 'like' or 'unlike'
+           $action = $request['action'] ?? 'like'; // 'like' or 'unlike'
             $this->postService->toggleLike($post, $action === 'like');
             $message = $action === 'like' ? 'Post liked successfully' : 'Post unliked successfully';
             return apiResponse(true, $message, null, 200);
         } catch (\Exception $e) {
-            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 400);
+            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 500);
         }
     }
 
     public function save(Post $post, PostActionRequest $request): JsonResponse
     {
         try {
-            $action = $request->input('action', 'save'); // 'save' or 'unsave'
+            $action = $request['action'] ?? 'save'  ; // 'save' or 'unsave'
             $this->postService->toggleSave($post, $action === 'save');
             $message = $action === 'save' ? 'Post saved successfully' : 'Post unsaved successfully';
             return apiResponse(true, $message, null, 200);

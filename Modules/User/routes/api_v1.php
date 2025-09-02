@@ -4,12 +4,15 @@ use Illuminate\Support\Facades\Route;
 use Modules\User\App\Http\Controller\UserApiController;
 use Modules\User\App\Http\Controller\ProfileApiController;
 
+Route::middleware(['auth:sanctum'])->group(function () {
+    // User management routes
 Route::apiResource('user',UserApiController::class);
-   Route::put('/users/{id}/ban', [UserApiController::class, 'ban']);
+   Route::put('/user/{id}/ban', [UserApiController::class, 'ban']);
 // Add these routes
 Route::prefix('profile')->group(function () {
     Route::get('/', [ProfileApiController::class, 'show']);
     Route::put('/', [ProfileApiController::class, 'update']);
     Route::delete('/', [ProfileApiController::class, 'destroy']);
 
+});
 });

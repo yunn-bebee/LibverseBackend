@@ -12,4 +12,14 @@ interface UserServiceInterface
     public function update($id, array $data): array;
     public function delete($id): bool;
     public function banUser($id): bool;
-}
+     public function followUser(User $follower, User $followee): void;
+
+    public function unfollowUser(User $follower, User $followee): void;
+
+    public function getFollowers(User $user, int $perPage = 15);
+
+    public function getFollowing(User $user, int $perPage = 15);
+
+
+
+ }

@@ -21,11 +21,21 @@ class ThreadService implements ThreadServiceInterface
         $thread->user_id = Auth::id();
         $thread->save();
 
+        // Send notification
+        $user = Auth::user();
+
         Log::info('Thread created', [
             'thread_id' => $thread->id,
             'forum_id' => $forum->id,
             'user_id' => Auth::id(),
         ]);
+        send_notification(
+            $user,
+            'Thread Created',
+            "You've created the thread '{$thread->title}' in '{$forum->name}' Start posting now!.",
+            url("/threads/{$thread->id}"),
+            'View Thread'
+        );
 
         return $thread;
     }
@@ -36,7 +46,7 @@ class ThreadService implements ThreadServiceInterface
     public function getByForum(Forum $forum, array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
         $query = Thread::where('forum_id', $forum->id)
-            ->with(['user', 'book' , 'posts'])
+            ->with(['user', 'user.profile', 'book'])
             ->withCount('posts');
 
         if (isset($filters['post_type'])) {
@@ -57,7 +67,12 @@ class ThreadService implements ThreadServiceInterface
      */
     public function getById(int $id): ?Thread
     {
-        return Thread::with(['user', 'book', 'posts'])->findOrFail($id);
+        return Thread::with([
+            'user', 'book', 'user.profile', 'posts', 'forum', 'posts.media',
+            'posts.user', 'posts.user.profile', 'posts.book',
+            'posts.replies.user', 'posts.replies.user.profile', 'posts.replies.media',
+            'posts.replies.replies.user', 'posts.replies.replies.user.profile', 'posts.replies.replies.media'
+        ])->findOrFail($id);
     }
 
     /**
@@ -71,6 +86,15 @@ class ThreadService implements ThreadServiceInterface
         }
 
         $thread->update($data);
+
+        // Send notification
+        send_notification(
+            $user,
+            'Thread Updated',
+            "You've updated the thread '{$thread->title}'.",
+            url("/threads/{$thread->id}"),
+            'View Thread'
+        );
 
         Log::info('Thread updated', [
             'thread_id' => $thread->id,
@@ -86,12 +110,21 @@ class ThreadService implements ThreadServiceInterface
     public function delete(Thread $thread): bool
     {
         $user = Auth::user();
-        if (!$user || ($thread->user_id !== $user->id && !$user->hasRole('moderator'))) {
-            throw new \Exception('Unauthorized to delete thread.');
-        }
+        // if (!$user || ($thread->user_id !== $user->id && !$user->hasRole(['moderator' 'admin']))) {
+        //     throw new \Exception('Unauthorized to delete thread.');
+        // }
 
         $result = $thread->delete();
 
+        // Send notification
+        send_notification(
+            $user,
+            'Thread Deleted',
+            "You've deleted the thread '{$thread->title}'.",
+            url("/forums/{$thread->forum_id}"),
+            'View Forum'
+        );
+        
         Log::info('Thread deleted', [
             'thread_id' => $thread->id,
             'user_id' => $user->id,
@@ -106,12 +139,17 @@ class ThreadService implements ThreadServiceInterface
     public function togglePin(Thread $thread): Thread
     {
         $user = Auth::user();
-        if (!$user || ($thread->user_id !== $user->id && !$user->hasRole('moderator'))) {
-            throw new \Exception('Unauthorized to toggle pin status.');
-        }
-
         $thread->is_pinned = !$thread->is_pinned;
         $thread->save();
+
+        // Send notification
+        send_notification(
+            $user,
+            'Thread Pin Status Changed',
+            "The thread '{$thread->title}' is now " . ($thread->is_pinned ? 'pinned' : 'unpinned') . ".",
+            url("/threads/{$thread->id}"),
+            'View Thread'
+        );
 
         Log::info('Thread pin status toggled', [
             'thread_id' => $thread->id,
@@ -128,12 +166,17 @@ class ThreadService implements ThreadServiceInterface
     public function toggleLock(Thread $thread): Thread
     {
         $user = Auth::user();
-        if (!$user || ($thread->user_id !== $user->id && !$user->hasRole('moderator'))) {
-            throw new \Exception('Unauthorized to toggle lock status.');
-        }
-
         $thread->is_locked = !$thread->is_locked;
         $thread->save();
+
+        // Send notification
+        send_notification(
+            $user,
+            'Thread Lock Status Changed',
+            "The thread '{$thread->title}' is now " . ($thread->is_locked ? 'locked' : 'unlocked') . ".",
+            url("/threads/{$thread->id}"),
+            'View Thread'
+        );
 
         Log::info('Thread lock status toggled', [
             'thread_id' => $thread->id,
@@ -144,3 +187,4 @@ class ThreadService implements ThreadServiceInterface
         return $thread;
     }
 }
+

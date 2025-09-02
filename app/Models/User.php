@@ -8,20 +8,21 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Enums\UserRole;
 use Laravel\Sanctum\HasApiTokens;
-
+use App\Access\Permissions;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-     
+
     protected $fillable = [
         'member_id', 'uuid', 'username', 'email', 'password',  'approval_status', // Add this
         'approved_at', // Add this
-        'role', 'date_of_birth', 'email_verified_at'
+        'role', 'date_of_birth', 'email_verified_at',
+        'email_notifications', 'push_notifications'
     ];
 
     protected $hidden = ['password', 'remember_token'];
-   
+
 
     // Approval status checks
     public function isPending(): bool
@@ -53,6 +54,20 @@ class User extends Authenticatable
     public function isMember(): bool
     {
         return $this->role === UserRole::MEMBER->value;
+    }
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    public function hasAnyRole(array $roles): bool
+    {
+        return in_array($this->role, $roles);
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        return Permissions::hasPermission($this->role, $permission);
     }
     // Relationships
     public function profile()

@@ -2,62 +2,183 @@
 
 namespace Modules\Challenge\App\Http\Controller;
 
-use Illuminate\Http\JsonResponse;
+use App\Helpers\apiResponse;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+use Illuminate\Support\Facades\Auth;
 use Modules\Challenge\App\Contracts\ChallengeServiceInterface;
+use Modules\Challenge\App\Http\Requests\ChallengeBookRequest;
 use Modules\Challenge\App\Http\Requests\ChallengeRequest;
+use Modules\Challenge\App\Http\Requests\ChallengeStatusRequest;
 use Modules\Challenge\App\Resources\ChallengeApiResource;
+
 
 class ChallengeApiController extends Controller
 {
     public function __construct(
-        protected ChallengeServiceInterface $ChallengeService
+        protected ChallengeServiceInterface $challengeService
     ) {}
 
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(): JsonResponse
+    // Public endpoint - shows challenges without personal data
+    public function index(Request $request): JsonResponse
     {
-        $items = $this->ChallengeService->getAll();
-        return response()->json(ChallengeApiResource::collection($items));
+        $filters = $request->only(['active', 'current']);
+        $paginationParams = getPaginationParams($request);
+
+        $challenges = $this->challengeService->getAll(
+            $filters,
+            $paginationParams['perPage'],
+            $paginationParams['page']
+        );
+
+        return apiResponse(
+            true,
+            'Challenges retrieved successfully',
+            ChallengeApiResource::collection($challenges),
+            200,
+            [],
+            $challenges
+        );
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    // User joins a challenge
+    public function joinChallenge(string $challengeId): JsonResponse
+    {
+        $userId = Auth::id();
+        $result = $this->challengeService->joinChallenge((int) $challengeId, $userId);
+
+        return apiResponse(
+            true,
+            $result['message'],
+            new ChallengeApiResource($result['challenge']),
+            200
+        );
+    }
+
+    // Get user's progress (only available after joining)
+    public function getUserProgress(string $challengeId): JsonResponse
+    {
+        $userId = Auth::id();
+        $progress = $this->challengeService->getUserProgress($userId, (int) $challengeId);
+
+        return apiResponse(
+            true,
+            'Progress retrieved successfully',
+            $progress,
+            200
+        );
+    }
+
+    // Add book to challenge (after joining)
+  // Add book to challenge (after joining)
+public function addBook(ChallengeBookRequest $request, string $challengeId): JsonResponse
+{
+    $userId = Auth::id();
+    $validated = $request->validated();
+
+    $this->challengeService->addBookToChallenge(
+        (int) $challengeId,
+        $userId,
+        $validated['book_id'],
+        $validated['status']
+    );
+
+    return apiResponse(
+        true,
+        'Book added to challenge successfully',
+        null,
+        200
+    );
+}
+    // Update book status in challenge
+    public function updateBookStatus(ChallengeStatusRequest $request, string $recordId): JsonResponse
+    {
+          $validated = $request->validated();
+        $this->challengeService->updateBookStatus(
+            (int) $recordId,
+            $validated['status'],
+        $validated['rating'],
+
+        $validated['review']
+        );
+
+        return apiResponse(
+            true,
+            'Book status updated successfully',
+            null,
+            200
+        );
+    }
+
+    // Get challenge leaderboard
+    public function getLeaderboard(string $challengeId): JsonResponse
+    {
+        $leaderboard = $this->challengeService->getLeaderboard((int) $challengeId);
+
+        return apiResponse(
+            true,
+            'Leaderboard retrieved successfully',
+            $leaderboard,
+            200
+        );
+    }
+
+    // Admin endpoints
     public function store(ChallengeRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $item = $this->ChallengeService->create($data);
-        return response()->json(new ChallengeApiResource($item), 201);
+        $challenge = $this->challengeService->create($request->validated());
+
+        return apiResponse(
+            true,
+            'Challenge created successfully',
+            new ChallengeApiResource($challenge),
+            201
+        );
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(string $id): JsonResponse
     {
-        $item = $this->ChallengeService->find($id);
-        return response()->json(new ChallengeApiResource($item));
+        $challenge = $this->challengeService->find((int) $id);
+
+        if (!$challenge) {
+            return apiResponse(false, 'Challenge not found', null, 404);
+        }
+
+        return apiResponse(
+            true,
+            'Challenge retrieved successfully',
+            new ChallengeApiResource($challenge),
+            200
+        );
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(ChallengeRequest $request, string $id): JsonResponse
     {
-        $data = $request->validated();
-        $item = $this->ChallengeService->update($id, $data);
-        return response()->json(new ChallengeApiResource($item));
+        $challenge = $this->challengeService->update((int) $id, $request->validated());
+
+        return apiResponse(
+            true,
+            'Challenge updated successfully',
+            new ChallengeApiResource($challenge),
+            200
+        );
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(string $id): JsonResponse
     {
-        $this->ChallengeService->delete($id);
-        return response()->json(['message' => 'Challenge deleted successfully']);
+        $deleted = $this->challengeService->delete((int) $id);
+
+        if (!$deleted) {
+            return apiResponse(false, 'Challenge not found', null, 404);
+        }
+
+        return apiResponse(
+            true,
+            'Challenge deleted successfully',
+            null,
+            204
+        );
     }
 }

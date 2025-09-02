@@ -3,10 +3,12 @@
 namespace Modules\User\App\Services;
 
 use App\Models\User;
+use Modules\Notification\App\Notifications\GenericNotification;
 use Modules\User\App\Contracts\UserServiceInterface;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Modules\Notification\App\Notifications\UserFollowedNotification;
 
 class UserService implements UserServiceInterface
 {
@@ -30,9 +32,8 @@ class UserService implements UserServiceInterface
                 'approval_status',
                 'created_at',
                 'approved_at',
-          ]);
+            ]);
 
-        // Apply filters
         if (!empty($filters['search'])) {
             $query->where(function($q) use ($filters) {
                 $q->where('username', 'like', "%{$filters['search']}%")
@@ -102,7 +103,7 @@ class UserService implements UserServiceInterface
                 'password' => 'sometimes|string|min:8',
                 'role' => 'sometimes|string|in:admin,moderator,member',
                 'date_of_birth' => 'nullable|date',
-                'approval_status' => 'sometimes|string|in:pending,approved,rejected,banned',
+                'approval_status' => 'sometimes|string|in:pending,approved,rejected',
             ])->validate();
 
             $updateData = $this->prepareUpdateData($validated, $user);
@@ -149,6 +150,31 @@ class UserService implements UserServiceInterface
         return true;
     }
 
+    public function followUser(User $follower, User $followee): void
+    {
+        if ($follower->id === $followee->id) {
+            throw new \Exception('Cannot follow yourself', 400);
+        }
+
+        $follower->following()->syncWithoutDetaching([$followee->id]);
+        new GenericNotification($follower->id ,"You got a new follower {$follower->username}" , "",  "" , "Check out Profile" );
+    }
+
+    public function unfollowUser(User $follower, User $followee): void
+    {
+        $follower->following()->detach($followee->id);
+    }
+
+    public function getFollowers(User $user, int $perPage = 15)
+    {
+        return $user->followers()->paginate($perPage);
+    }
+
+    public function getFollowing(User $user, int $perPage = 15)
+    {
+        return $user->following()->paginate($perPage);
+    }
+
     private function prepareUpdateData(array $validated, User $user): array
     {
         $updateData = [];
@@ -186,7 +212,6 @@ class UserService implements UserServiceInterface
             'approval_status' => $status,
             'approved_at' => null,
             'rejected_at' => null,
-            'banned_at' => null,
         ];
 
         $now = now();
@@ -197,9 +222,6 @@ class UserService implements UserServiceInterface
                 break;
             case 'rejected':
                 $data['rejected_at'] = $now;
-                break;
-            case 'banned':
-                $data['banned_at'] = $now;
                 break;
         }
 

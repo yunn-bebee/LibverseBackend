@@ -1,8 +1,13 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Modules\Notification\App\Notifications\GenericNotification;
+
+
 
 if (!function_exists('apiResponse')) {
     /**
@@ -147,5 +152,28 @@ if (!function_exists('errorResponse')) {
         $data = null
     ): JsonResponse {
         return apiResponse(false, $message, $data, $statusCode, $errors);
+    }
+}
+
+if (! function_exists('send_notification')) {
+    /**
+     * Send a notification to a user.
+     *
+     * @param User $user The user to notify
+     * @param string $title Notification title
+     * @param string $message Notification message
+     * @param string|null $actionUrl URL for the action button
+     * @param string|null $actionText Text for the action button
+     * @return bool Whether the notification was sent successfully
+     */
+    function send_notification(User $user, string $title, string $message, ?string $actionUrl = null, ?string $actionText = null): bool
+    {
+        try {
+            $user->notify(new GenericNotification($user, $title, $message, $actionUrl, $actionText));
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to send notification: ' . $e->getMessage());
+            return false;
+        }
     }
 }

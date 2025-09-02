@@ -8,6 +8,7 @@ use App\Models\Forum;
 use App\Models\Thread;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Modules\Forum\App\Contracts\ForumServiceInterface;
 use Modules\Forum\App\Contracts\ThreadServiceInterface;
 use Modules\Forum\App\Http\Requests\ForumRequest;
@@ -51,16 +52,18 @@ class ForumApiController extends Controller
      * Create a new forum.
      */
     public function store(ForumRequest $request): JsonResponse
-    {
-        $forum = $this->forumService->create($request->validated());
+{
 
-        return apiResponse(
-            true,
-            'Forum created successfully',
-            new ForumApiResource($forum),
-            201
-        );
-    }
+
+    $forum = $this->forumService->create($request->validated());
+
+    return apiResponse(
+        true,
+        'Forum created successfully',
+        new ForumApiResource($forum),
+        201
+    );
+}
 
     /**
      * Get a single forum with its threads.

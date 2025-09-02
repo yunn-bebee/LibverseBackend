@@ -7,7 +7,7 @@ enum UserRole: string
     case MEMBER = 'Member';
     case MODERATOR = 'Moderator';
     case ADMIN = 'Admin';
-    
+
     public static function values(): array
     {
         return array_map(fn($case) => $case->value, self::cases());

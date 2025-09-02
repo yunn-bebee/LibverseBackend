@@ -3,6 +3,7 @@
 namespace Modules\Post\App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class PostRequest extends FormRequest
 {
@@ -17,6 +18,6 @@ class PostRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return auth()->check();
+        return Auth::check();
     }
 }

@@ -4,10 +4,11 @@ namespace Modules\Forum\App\Services;
 
 use App\Models\Forum;
 use App\Models\Thread;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\Forum\App\Contracts\ForumServiceInterface;
-use Illuminate\Support\Facades\Log;
 
 class ForumService implements ForumServiceInterface
 {
@@ -45,7 +46,7 @@ class ForumService implements ForumServiceInterface
     public function create(array $data): Forum
     {
         $data['created_by'] = Auth::id();
-        $data['slug'] = \Str::slug($data['name']);
+        $data['slug'] = Str::slug($data['name']);
 
         // Ensure slug uniqueness
         $originalSlug = $data['slug'];
@@ -54,7 +55,24 @@ class ForumService implements ForumServiceInterface
             $data['slug'] = $originalSlug . '-' . $count++;
         }
 
-        return Forum::create($data);
+        $forum = Forum::create($data);
+
+        // Send notification
+        $user = Auth::user();
+        send_notification(
+            $user,
+            'Forum Created',
+            "You've created the forum '{$forum->name}'.",
+            url("/forums/{$forum->id}"),
+            'View Forum'
+        );
+
+        Log::info('Forum created', [
+            'forum_id' => $forum->id,
+            'user_id' => Auth::id(),
+        ]);
+
+        return $forum;
     }
 
     /**
@@ -65,7 +83,7 @@ class ForumService implements ForumServiceInterface
         $forum = Forum::findOrFail($id);
 
         if (isset($data['name'])) {
-            $data['slug'] = \Str::slug($data['name']);
+            $data['slug'] = Str::slug($data['name']);
             // Ensure slug uniqueness
             $originalSlug = $data['slug'];
             $count = 1;
@@ -75,6 +93,22 @@ class ForumService implements ForumServiceInterface
         }
 
         $forum->update($data);
+
+        // Send notification
+        $user = Auth::user();
+        send_notification(
+            $user,
+            'Forum Updated',
+            "You've updated the forum '{$forum->name}'.",
+            url("/forums/{$forum->id}"),
+            'View Forum'
+        );
+
+        Log::info('Forum updated', [
+            'forum_id' => $forum->id,
+            'user_id' => Auth::id(),
+        ]);
+
         return $forum;
     }
 
@@ -84,7 +118,24 @@ class ForumService implements ForumServiceInterface
     public function delete(int $id): bool
     {
         $forum = Forum::findOrFail($id);
-        return $forum->delete();
+        $result = $forum->delete();
+
+        // Send notification
+        $user = Auth::user();
+        send_notification(
+            $user,
+            'Forum Deleted',
+            "You've deleted the forum '{$forum->name}'.",
+            url('/forums'),
+            'View Forums'
+        );
+
+        Log::info('Forum deleted', [
+            'forum_id' => $id,
+            'user_id' => Auth::id(),
+        ]);
+
+        return $result;
     }
 
     /**
@@ -112,6 +163,23 @@ class ForumService implements ForumServiceInterface
         $thread->forum_id = $forum->id;
         $thread->user_id = Auth::id();
         $thread->save();
+
+        // Send notification
+        $user = Auth::user();
+        send_notification(
+            $user,
+            'Thread Created',
+            "You've created the thread '{$thread->title}' in '{$forum->name}'.",
+            url("/threads/{$thread->id}"),
+            'View Thread'
+        );
+
+        Log::info('Thread created', [
+            'thread_id' => $thread->id,
+            'forum_id' => $forum->id,
+            'user_id' => Auth::id(),
+        ]);
+
         return $thread;
     }
 
@@ -121,12 +189,17 @@ class ForumService implements ForumServiceInterface
     public function togglePublic(Forum $forum): Forum
     {
         $user = Auth::user();
-        if (!$user || ($forum->created_by !== $user->id && !$user->hasRole('moderator'))) {
-            throw new \Exception('Unauthorized to toggle public status.');
-        }
-
         $forum->is_public = !$forum->is_public;
         $forum->save();
+
+        // Send notification
+        send_notification(
+            $user,
+            'Forum Visibility Changed',
+            "The forum '{$forum->name}' is now " . ($forum->is_public ? 'public' : 'private') . ".",
+            url("/forums/{$forum->id}"),
+            'View Forum'
+        );
 
         Log::info('Forum public status toggled', [
             'forum_id' => $forum->id,
@@ -137,3 +210,4 @@ class ForumService implements ForumServiceInterface
         return $forum;
     }
 }
+

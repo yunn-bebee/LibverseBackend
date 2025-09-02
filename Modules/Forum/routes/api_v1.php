@@ -6,12 +6,13 @@ use Illuminate\Support\Facades\Route;
 use Modules\Forum\App\Http\Controller\ForumApiController;
 
     // Forum resource routes (index, store, show, update, destroy)
-    Route::apiResource('forums', ForumApiController::class)->names([
-        'index' => 'forum.index',
-        'store' => 'forum.store',
-        'show' => 'forum.show',
-        'update' => 'forum.update',
-        'destroy' => 'forum.destroy',
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::resource('forums', ForumApiController::class)->names([
+            'index' => 'forum.index',
+            'store' => 'forum.store',
+            'show' => 'forum.show',
+            'update' => 'forum.update',
+            'destroy' => 'forum.destroy',
     ]);
 
     // Nested thread resource routes under forums
@@ -32,3 +33,4 @@ use Modules\Forum\App\Http\Controller\ForumApiController;
         Route::post('threads/{thread}/toggle-lock', [ForumApiController::class, 'toggleThreadLock'])->name('forum.threads.toggle-lock');
     });
     Route::get('threads/{thread}', [ForumApiController::class, 'showThread'])->name('forum.threads.show');
+    });

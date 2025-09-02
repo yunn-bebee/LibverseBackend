@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ChallengeBook extends Model
 {
-     use HasFactory; 
-     protected $table = 'challenge_books';
-    
-    protected $fillable = ['challenge_id', 'book_id', 'added_by'];
-    
+    use HasFactory;
+
+    protected $table = 'challenge_books';
+
+    protected $fillable = ['reading_challenge_id', 'book_id', 'added_by'];
+
     public $timestamps = true;
 
     public function challenge()

@@ -6,34 +6,30 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use App\Enums\UserRole;
+use App\Access\Permissions;
 
 class RoleMiddleware
 {
-    public function handle(Request $request, Closure $next, ...$roles): Response
+   public function handle(Request $request, Closure $next, ...$permissions): Response
     {
-        $user = $request->user();
+        $user = $request->user('sanctum');
 
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        // Convert enum cases to values if needed
-        $roleValues = array_map(function($role) {
-            // If $role is a valid UserRole case name, get its value; otherwise, use $role as is
-            return UserRole::tryFrom($role)?->value ?? $role;
-        }, $roles);
-
-
-        // Check if user's role matches any allowed roles (case-insensitive)
-        $userRoleLower = strtolower($user->role);
-        $roleValuesLower = array_map('strtolower', $roleValues);
-
-        if (!in_array($userRoleLower, $roleValuesLower)) {
-            return response()->json([
-            'message' => $user->role . ' ' . implode(',', $roleValues) . ' Unauthorized that doesnt work bro'
-            ], 403);
+        // Admins bypass permission checks (have all permissions)
+        if ($user->hasRole(UserRole::ADMIN->value)) {
+            return $next($request);
         }
 
-        return $next($request);
+        // Check if user has any of the required permissions
+        foreach ($permissions as $permission) {
+            if ($user->hasPermission($permission)) {
+                return $next($request);
+            }
+        }
+
+        return response()->json(['message' => 'Unauthorized'], 403);
     }
 }

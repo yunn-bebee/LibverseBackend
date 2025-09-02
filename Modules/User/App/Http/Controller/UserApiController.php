@@ -1,11 +1,12 @@
 <?php
 
-namespace Modules\User\App\Http\Controller;
+namespace Modules\User\App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Modules\User\App\Http\Requests\StoreUserApiRequest;
 use Modules\User\App\Http\Requests\UpdateUserApiRequest;
 use Modules\User\App\Resources\UserApiResource;
@@ -20,9 +21,6 @@ class UserApiController extends Controller
         $this->userService = $userService;
     }
 
-    /**
-     * List all users (paginated, filter by search, role, or status).
-     */
     public function index(Request $request): JsonResponse
     {
         try {
@@ -44,13 +42,10 @@ class UserApiController extends Controller
                 $users
             );
         } catch (\Exception $e) {
-            return errorResponse($e->getMessage(), [],  500);
+            return errorResponse($e->getMessage(), [], 500);
         }
     }
 
-    /**
-     * Get a single user.
-     */
     public function show(User $user): JsonResponse
     {
         try {
@@ -70,9 +65,6 @@ class UserApiController extends Controller
         }
     }
 
-    /**
-     * Create a new user.
-     */
     public function store(StoreUserApiRequest $request): JsonResponse
     {
         try {
@@ -97,9 +89,6 @@ class UserApiController extends Controller
         }
     }
 
-    /**
-     * Update a user.
-     */
     public function update(UpdateUserApiRequest $request, User $user): JsonResponse
     {
         try {
@@ -119,13 +108,10 @@ class UserApiController extends Controller
                 new UserApiResource($result['user'])
             );
         } catch (\Exception $e) {
-            return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
         }
     }
 
-    /**
-     * Delete a user.
-     */
     public function destroy(User $user): JsonResponse
     {
         try {
@@ -142,9 +128,6 @@ class UserApiController extends Controller
         }
     }
 
-    /**
-     * Ban a user.
-     */
     public function ban(User $user): JsonResponse
     {
         try {
@@ -156,6 +139,46 @@ class UserApiController extends Controller
                 null,
                 200
             );
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
+        }
+    }
+
+    public function follow(User $user): JsonResponse
+    {
+        try {
+            $this->userService->followUser(Auth::user(), $user);
+            return apiResponse(true, 'Successfully followed user', null, 200);
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
+        }
+    }
+
+    public function unfollow(User $user): JsonResponse
+    {
+        try {
+            $this->userService->unfollowUser(Auth::user(), $user);
+            return apiResponse(true, 'Successfully unfollowed user', null, 200);
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
+        }
+    }
+
+    public function followers(User $user): JsonResponse
+    {
+        try {
+            $followers = $this->userService->getFollowers($user);
+            return apiResponse(true, 'Followers retrieved successfully', UserApiResource::collection($followers));
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
+        }
+    }
+
+    public function following(User $user): JsonResponse
+    {
+        try {
+            $following = $this->userService->getFollowing($user);
+            return apiResponse(true, 'Following retrieved successfully', UserApiResource::collection($following));
         } catch (\Exception $e) {
             return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
         }
