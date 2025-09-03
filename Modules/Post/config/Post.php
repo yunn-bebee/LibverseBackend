@@ -1,5 +1,5 @@
 <?php
 
 return [
-    // Post module configuration
+    'APYHUB_API_KEY' => env('APYHUB_API_KEY'),
 ];

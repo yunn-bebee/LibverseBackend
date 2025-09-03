@@ -16,8 +16,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'member_id', 'uuid', 'username', 'email', 'password',  'approval_status', // Add this
-        'approved_at', // Add this
-        'role', 'date_of_birth', 'email_verified_at',
+        'approved_at', 'is_disabled', 'disabled_at', 'role', 'date_of_birth', 'email_verified_at',
         'email_notifications', 'push_notifications'
     ];
 

@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Forum extends Model
 {
-     use HasFactory; 
+     use HasFactory;
     protected $fillable = [
-        'name', 'slug', 'description', 'category', 
+        'name', 'slug', 'description', 'category',
         'is_public', 'created_by', 'book_id'
     ];
 
@@ -31,5 +31,20 @@ class Forum extends Model
     public function events()
     {
         return $this->hasMany(Event::class);
+    }
+       public function members()
+    {
+        return $this->belongsToMany(User::class, 'forum_user')
+                    ->withPivot('status', 'approved_at')
+                    ->withTimestamps()
+                    ->wherePivot('status', 'approved');
+    }
+
+    public function joinRequests()
+    {
+        return $this->belongsToMany(User::class, 'forum_user')
+                    ->withPivot('status', 'approved_at')
+                    ->withTimestamps()
+                    ->wherePivot('status', 'pending');
     }
 }

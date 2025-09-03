@@ -6,6 +6,7 @@ namespace Modules\Forum\App\Http\Controller;
 use App\Http\Controllers\Controller;
 use App\Models\Forum;
 use App\Models\Thread;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,7 @@ use Modules\Forum\App\Http\Requests\ForumRequest;
 use Modules\Forum\App\Http\Requests\ThreadRequest;
 use Modules\Forum\App\Resources\ForumApiResource;
 use Modules\Forum\App\Resources\ThreadApiResource;
+use Modules\User\App\Resources\UserApiResource;
 
 class ForumApiController extends Controller
 {
@@ -193,5 +195,102 @@ class ForumApiController extends Controller
             'Thread lock status toggled successfully',
             new ThreadApiResource($thread)
         );
+    }
+
+    /**
+     * Join a forum.
+     */
+    public function join(Forum $forum): JsonResponse
+    {
+        try {
+            $this->forumService->joinForum(Auth::user(), $forum);
+            $message = $forum->is_public ? 'Successfully joined forum' : 'Join request sent';
+            return apiResponse(true, $message, null, 200);
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
+        }
+    }
+
+    /**
+     * Leave a forum.
+     */
+    public function leave(Forum $forum): JsonResponse
+    {
+        try {
+            $this->forumService->leaveForum(Auth::user(), $forum);
+            return apiResponse(true, 'Successfully left forum', null, 200);
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
+        }
+    }
+
+    /**
+     * List forum members.
+     */
+    public function members(Forum $forum): JsonResponse
+    {
+        try {
+            $members = $this->forumService->getForumMembers($forum);
+            return apiResponse(true, 'Forum members retrieved successfully', UserApiResource::collection($members));
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
+        }
+    }
+
+    /**
+     * Approve a join request for a private forum.
+     */
+    public function approveJoinRequest(Request $request, Forum $forum): JsonResponse
+    {
+        try {
+            $this->authorizeCreatorOrAdmin($forum);
+            $request->validate(['user_id' => 'required|exists:users,id']);
+            $user = User::findOrFail($request->user_id);
+            $this->forumService->approveJoinRequest($user, $forum);
+            return apiResponse(true, 'Join request approved', null, 200);
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
+        }
+    }
+
+    /**
+     * Reject a join request for a private forum.
+     */
+    public function rejectJoinRequest(Request $request, Forum $forum): JsonResponse
+    {
+        try {
+            $this->authorizeCreatorOrAdmin($forum);
+            $request->validate(['user_id' => 'required|exists:users,id']);
+            $user = User::findOrFail($request->user_id);
+            $this->forumService->rejectJoinRequest($user, $forum);
+            return apiResponse(true, 'Join request rejected', null, 200);
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
+        }
+    }
+
+    /**
+     * Fetch activity feed for followed users.
+     */
+    public function activityFeed(Request $request): JsonResponse
+    {
+        try {
+            $perPage = $request->query('per_page', 15);
+            $threads = $this->forumService->getActivityFeed(Auth::user(), $perPage);
+            return apiResponse(true, 'Activity feed retrieved successfully', ThreadApiResource::collection($threads));
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
+        }
+    }
+
+    /**
+     * Authorize forum creator or admin.
+     */
+    protected function authorizeCreatorOrAdmin(Forum $forum): void
+    {
+        $user = Auth::user();
+        if (!$user || ($forum->created_by !== $user->id && !$user->hasRole('admin'))) {
+            throw new \Exception('Unauthorized to perform this action', 403);
+        }
     }
 }

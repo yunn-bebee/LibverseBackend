@@ -22,17 +22,7 @@ class UserService implements UserServiceInterface
     public function getAll(array $filters = [], bool $paginate = true, int $perPage = 20)
     {
         $query = User::query()
-            ->select([
-                'id',
-                'uuid',
-                'member_id',
-                'username',
-                'email',
-                'role',
-                'approval_status',
-                'created_at',
-                'approved_at',
-            ]);
+            ->with('profile');
 
         if (!empty($filters['search'])) {
             $query->where(function($q) use ($filters) {
@@ -133,7 +123,7 @@ class UserService implements UserServiceInterface
     {
         $user = User::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
 
-        if ($user->approval_status === 'banned') {
+        if ($user->approval_status == 'banned') {
             throw ValidationException::withMessages([
                 'user' => ['User is already banned']
             ])->status(400);
@@ -141,9 +131,7 @@ class UserService implements UserServiceInterface
 
         $user->update([
             'approval_status' => 'banned',
-            'banned_at' => now(),
-            'approved_at' => null,
-            'rejected_at' => null,
+
         ]);
 
         $user->tokens()->delete();
@@ -157,7 +145,7 @@ class UserService implements UserServiceInterface
         }
 
         $follower->following()->syncWithoutDetaching([$followee->id]);
-        new GenericNotification($follower->id ,"You got a new follower {$follower->username}" , "",  "" , "Check out Profile" );
+        new GenericNotification(User::find($follower->id) ,"You got a new follower {$follower->username}" , "",  "" , "Check out Profile" );
     }
 
     public function unfollowUser(User $follower, User $followee): void
@@ -226,5 +214,36 @@ class UserService implements UserServiceInterface
         }
 
         return $data;
+    }
+        public function disableUser($id): bool
+    {
+        $user = User::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
+
+        if ($user->is_disabled) {
+            throw ValidationException::withMessages([
+                'user' => ['User is already disabled']
+            ])->status(400);
+        }
+
+        $user->update([
+            'approval_status' => 'banned',
+            'is_disabled' => true,
+            'disabled_at' => now(),
+        ]);
+
+        $user->tokens()->delete();
+        return true;
+    }
+    public function getStats($id)
+    {
+        $user = User::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
+
+        return [
+            'books_read' => $user->challengeBooks()->where('status', 'completed')->count(),
+            'badges_earned' => $user->badges()->count(),
+            'threads_created' => $user->threads()->count(),
+            'posts_created' => $user->posts()->count(),
+            'comments_created' => $user->comments()->count(),
+        ];
     }
 }

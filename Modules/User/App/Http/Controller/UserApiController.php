@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\User\App\Http\Controllers;
+namespace Modules\User\App\Http\Controller;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -135,7 +135,7 @@ class UserApiController extends Controller
 
             return apiResponse(
                 true,
-                'User banned successfully',
+                'User banned successfully ' . $user->id,
                 null,
                 200
             );
@@ -179,6 +179,42 @@ class UserApiController extends Controller
         try {
             $following = $this->userService->getFollowing($user);
             return apiResponse(true, 'Following retrieved successfully', UserApiResource::collection($following));
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
+        }
+    }
+       public function disable(User $user): JsonResponse
+    {
+        try {
+            $this->userService->disableUser($user->id);
+            return apiResponse(true, 'User disabled successfully  '. $user->id, null, 200);
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
+        }
+    }
+       public function updateRole(Request $request, User $user): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'role' => 'required|string|in:admin,moderator,member',
+            ]);
+
+            $result = $this->userService->update($user->id, $validated);
+
+            if (!$result['success']) {
+                return errorResponse($result['message'], $result['errors'], 400);
+            }
+
+            return apiResponse(true, 'User role updated successfully', new UserApiResource($result['user']));
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
+        }
+    }
+      public function stats(User $user): JsonResponse
+    {
+        try {
+            $stats = $this->userService->getStats($user->id);
+            return apiResponse(true, 'User stats retrieved successfully', $stats);
         } catch (\Exception $e) {
             return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
         }

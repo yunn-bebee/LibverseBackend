@@ -20,6 +20,7 @@ interface UserServiceInterface
 
     public function getFollowing(User $user, int $perPage = 15);
 
-
+    public function disableUser($id): bool;
+    public function getStats($id);
 
  }

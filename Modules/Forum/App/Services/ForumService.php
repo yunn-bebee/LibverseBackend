@@ -4,10 +4,11 @@ namespace Modules\Forum\App\Services;
 
 use App\Models\Forum;
 use App\Models\Thread;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Modules\Forum\App\Contracts\ForumServiceInterface;
 
 class ForumService implements ForumServiceInterface
@@ -138,6 +139,118 @@ class ForumService implements ForumServiceInterface
         return $result;
     }
 
+    /**
+     * Join a forum.
+     */
+    public function joinForum(User $user, Forum $forum): void
+    {
+        if ($user->forums()->where('forum_id', $forum->id)->exists()) {
+            throw new \Exception('User is already a member or has a pending request', 400);
+        }
+
+        $status = $forum->is_public ? 'approved' : 'pending';
+        $pivotData = ['status' => $status];
+        if ($status === 'approved') {
+            $pivotData['approved_at'] = now();
+        }
+
+        $user->forums()->syncWithoutDetaching([$forum->id => $pivotData]);
+
+        if ($status === 'pending') {
+            // Notification::send($forum->creator, new ForumJoinRequestNotification($user, $forum));
+        } else {
+            // \otification::send($user, new ForumJoinApprovedNotification($forum));
+        }
+
+        Log::info('User joined forum', [
+            'user_id' => $user->id,
+            'forum_id' => $forum->id,
+            'status' => $status,
+        ]);
+    }
+
+    /**
+     * Leave a forum.
+     */
+    public function leaveForum(User $user, Forum $forum): void
+    {
+        if (!$user->forums()->where('forum_id', $forum->id)->exists()) {
+            throw new \Exception('User is not a member of this forum', 400);
+        }
+
+        $user->forums()->detach($forum->id);
+
+        Log::info('User left forum', [
+            'user_id' => $user->id,
+            'forum_id' => $forum->id,
+        ]);
+    }
+
+    /**
+     * List forum members.
+     */
+    public function getForumMembers(Forum $forum, int $perPage = 15): LengthAwarePaginator
+    {
+        return $forum->members()->paginate($perPage);
+    }
+
+    /**
+     * Approve a join request for a private forum.
+     */
+    public function approveJoinRequest(User $user, Forum $forum): void
+    {
+        if (!$user->forums()->where('forum_id', $forum->id)->where('status', 'pending')->exists()) {
+            throw new \Exception('No pending join request found', 400);
+        }
+
+        $user->forums()->updateExistingPivot($forum->id, [
+            'status' => 'approved',
+            'approved_at' => now(),
+        ]);
+
+        // \Notification::send($user, new ForumJoinApprovedNotification($forum));
+
+        Log::info('Join request approved', [
+            'user_id' => $user->id,
+            'forum_id' => $forum->id,
+        ]);
+    }
+
+    /**
+     * Reject a join request for a private forum.
+     */
+    public function rejectJoinRequest(User $user, Forum $forum): void
+    {
+        if (!$user->forums()->where('forum_id', $forum->id)->where('status', 'pending')->exists()) {
+            throw new \Exception('No pending join request found', 400);
+        }
+
+        $user->forums()->updateExistingPivot($forum->id, [
+            'status' => 'rejected',
+            'approved_at' => null,
+        ]);
+
+        // \Notification::send($user, new ForumJoinRejectedNotification($forum));
+
+        Log::info('Join request rejected', [
+            'user_id' => $user->id,
+            'forum_id' => $forum->id,
+        ]);
+    }
+
+    /**
+     * Fetch activity feed for followed users.
+     */
+    public function getActivityFeed(User $user, int $perPage = 15): LengthAwarePaginator
+    {
+        $followedUserIds = $user->following()->pluck('followee_id')->toArray();
+
+        return Thread::whereIn('user_id', $followedUserIds)
+            ->with(['user', 'book', 'forum'])
+            ->withCount('posts')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+    }
     /**
      * Fetch threads for a forum (paginated).
      */

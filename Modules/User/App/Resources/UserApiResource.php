@@ -22,6 +22,7 @@ class UserApiResource extends JsonResource
             'email' => $this->email,
             'role' => $this->role,
             'dateOfBirth' => $this->date_of_birth,
+            'approvalStatus' => $this->approval_status,
             'approvedAt' => $this->approved_at,
             'profile' => new UserProfileApiResource($this->whenLoaded('profile')),
             'createdAt' => $this->created_at,
