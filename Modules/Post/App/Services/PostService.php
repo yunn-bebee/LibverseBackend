@@ -25,7 +25,7 @@ class PostService implements PostServiceInterface
         }
 
         $post = new Post($data);
-        $post->uuid = Str::uuid();
+        // $post->uuid = Str::uuid();
         $post->thread_id = $thread->id;
         $post->user_id = Auth::id();
         $post->parent_post_id = $data['parent_post_id'] ?? null;
@@ -33,7 +33,7 @@ class PostService implements PostServiceInterface
 
         Log::info('Post created', [
             'post_id' => $post->id,
-            'uuid' => $post->uuid,
+            // 'uuid' => $post->uuid,
             'thread_id' => $thread->id,
             'user_id' => Auth::id(),
             'parent_post_id' => $post->parent_post_id,
@@ -56,7 +56,12 @@ class PostService implements PostServiceInterface
                 'replies.media',
                 'replies.replies.user',
                 'replies.replies.user.profile',
-                'replies.replies.media'
+                'replies.replies.media',
+                'reports',
+                'reports.user',
+                'reports.user.profile',
+                'reports.reviewer',
+                'reports.reviewer.profile',
             ])
             ->withCount(['likes', 'saves', 'replies']);
 
@@ -235,9 +240,9 @@ class PostService implements PostServiceInterface
 
     public function getReportedPosts(int $perPage = 15): LengthAwarePaginator
     {
-        return Post::where('is_flagged', true)
+        return Post::whereHas('reports')
             ->with(['user', 'thread', 'thread.forum', 'reports', 'reports.user'])
-            ->orderBy('flagged_at', 'desc')
+
             ->paginate($perPage);
     }
  public function toggleFlag(Post $post): bool
@@ -264,7 +269,7 @@ class PostService implements PostServiceInterface
         return true;
     }
 
-    public function unflagPost(Post $post): void
+    public function unflag(Post $post): void
     {
         $user = Auth::user();
         if (!$user || !$user->hasAnyRole(['moderator', 'admin'])) {

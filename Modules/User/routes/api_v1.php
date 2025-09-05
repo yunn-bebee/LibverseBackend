@@ -24,7 +24,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users/{user}/stats', [UserApiController::class, 'stats'])->name('users.stats');
 });
 
-Route::middleware(['auth:sanctum' ])->group(function () {
+Route::middleware(['auth:sanctum' , 'role:admin'])->group(function () {
     Route::delete('/admin/users/{user}/disable', [UserApiController::class, 'disable']);
     Route::put('/admin/users/{user}/role', [UserApiController::class, 'updateRole']);
+    Route::put('/admin/users/{user}/enable', [UserApiController::class, 'enable']);
+    Route::get('/admin/stats', [UserApiController::class, 'adminStats'])->name('admin.stats');
+    
 });

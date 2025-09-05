@@ -3,6 +3,7 @@
 namespace Modules\Post\App\Contracts;
 
 use App\Models\Post;
+use App\Models\PostReport;
 use App\Models\Thread;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -95,4 +96,7 @@ interface PostServiceInterface
      * @return array The created media data.
      */
     public function uploadMedia(Post $post, array $data): array;
+    public function getReportedPosts(int $perPage = 15): LengthAwarePaginator;
+    public function unflag(Post $post): void;
+    public function reportPost(Post $post, array $data): PostReport;
 }

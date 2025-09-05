@@ -14,21 +14,33 @@ class BadgeService implements BadgeServiceInterface
 
     public function find(string $id)
     {
-        // TODO: Implement find() method
+        return Badge::find($id);
     }
 
     public function create(array $data)
     {
-        // TODO: Implement create() method
+        return Badge::create($data);
     }
 
     public function update(string $id, array $data)
     {
-        // TODO: Implement update() method
+        $badge = Badge::find($id);
+        if ($badge) {
+            $badge->update($data);
+            return $badge;
+        }
+        return null;
     }
+
+
 
     public function delete(string $id)
     {
-        // TODO: Implement delete() method
+        $badge = Badge::find($id);
+        if ($badge) {
+            $badge->delete();
+            return true;
+        }
+        return false;
     }
 }

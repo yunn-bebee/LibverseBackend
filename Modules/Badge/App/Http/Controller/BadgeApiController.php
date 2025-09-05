@@ -20,7 +20,7 @@ class BadgeApiController extends Controller
     public function index(): JsonResponse
     {
         $items = $this->BadgeService->getAll();
-        return response()->json(BadgeApiResource::collection($items));
+        return apiResponse(true, 'Badges retrieved successfully', $items);
     }
 
     /**
@@ -30,7 +30,7 @@ class BadgeApiController extends Controller
     {
         $data = $request->validated();
         $item = $this->BadgeService->create($data);
-        return response()->json(new BadgeApiResource($item), 201);
+        return apiResponse(true, 'Badge created successfully', new BadgeApiResource($item), 201);
     }
 
     /**
@@ -39,7 +39,7 @@ class BadgeApiController extends Controller
     public function show(string $id): JsonResponse
     {
         $item = $this->BadgeService->find($id);
-        return response()->json(new BadgeApiResource($item));
+        return apiResponse(true, 'Badge retrieved successfully', new BadgeApiResource($item));
     }
 
     /**
@@ -49,7 +49,7 @@ class BadgeApiController extends Controller
     {
         $data = $request->validated();
         $item = $this->BadgeService->update($id, $data);
-        return response()->json(new BadgeApiResource($item));
+        return apiResponse(true, 'Badge updated successfully', new BadgeApiResource($item));
     }
 
     /**
@@ -58,6 +58,6 @@ class BadgeApiController extends Controller
     public function destroy(string $id): JsonResponse
     {
         $this->BadgeService->delete($id);
-        return response()->json(['message' => 'Badge deleted successfully']);
+        return apiResponse(true, 'Badge deleted successfully');
     }
 }

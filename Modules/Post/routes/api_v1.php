@@ -24,6 +24,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin')->group(function () {
         Route::get('admin/reported-posts', [PostApiController::class, 'reportedPosts'])->name('post.reported-posts');
-        Route::post('admin/posts/{post}/unflag', [PostApiController::class, 'unflagPost'])->name('post.unflag-post');
+        Route::post('admin/posts/{post}/unflag', [PostApiController::class, 'unflag'])->name('post.unflag-post');
+        Route::post('admin/posts/{post}/flag', [PostApiController::class, 'flag'])->name('post.flag');
     });
 });

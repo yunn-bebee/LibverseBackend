@@ -219,4 +219,40 @@ class UserApiController extends Controller
             return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
         }
     }
+    public function enable(User $user): JsonResponse
+    {
+        try {
+            $this->userService->enableUser($user->id);
+            return apiResponse(true, 'User enabled successfully  '. $user->id, null, 200);
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 400);
+        }
+    }
+    public function current(): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            return apiResponse(true, 'Current user retrieved successfully', new UserApiResource($user));
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
+        }
+    }
+    public function adminStats(): JsonResponse
+    {
+        try {
+            $stats = $this->userService->adminStats();
+            return apiResponse(true, 'Admin stats retrieved successfully', $stats);
+        } catch (\Exception $e) {
+            return errorResponse($e->getMessage(), [],  500);
+        }
+    }
+    public function warn($uuid, Request $request)
+{
+    $this->userService->warnUser($uuid, $request);
+
+    return apiResponse(
+        success: true,
+        message: 'User warned successfully'
+    );
+}
 }

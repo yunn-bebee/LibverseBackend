@@ -15,7 +15,7 @@ class PostApiResource extends JsonResource
 
         $data = [
             'id' => $this->id,
-            'uuid' => $this->uuid,
+            'uuid' => $this->id,
             'content' => $this->content,
             'is_flagged' => $this->is_flagged,
             'user' => new UserApiResource($this->whenLoaded('user')),
@@ -48,21 +48,21 @@ class PostApiResource extends JsonResource
             'updated_at' => $this->updated_at->toISOString(),
         ];
 
-        if ($user && ($user->User::hasRole('admin') || $user->User::hasRole('moderator'))) {
+
             $data['reports'] = $this->whenLoaded('reports', function () {
                 return $this->reports->map(function ($report) {
                     return [
-                        'id' => $report->id,
+                        'id' => $report->post_id,
                         'user' => new UserApiResource($report->user),
                         'reason' => $report->reason,
                         'status' => $report->status,
-                        'reviewed_at' => $report->reviewed_at ? $report->reviewed_at->toISOString() : null,
+                        'reviewed_at' => $report->reviewed_at ? $report->reviewed_at : null,
                         'reviewed_by' => $report->reviewer ? new UserApiResource($report->reviewer) : null,
-                        'created_at' => $report->created_at->toISOString(),
+
                     ];
                 });
             });
-        }
+
 
         return $data;
     }

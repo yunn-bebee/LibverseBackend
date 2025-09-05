@@ -2,13 +2,23 @@
 
 namespace Modules\User\App\Services;
 
+use App\Mail\LibiverseEmail;
+use App\Models\Book;
+use App\Models\Event;
+use App\Models\EventRsvp;
+use App\Models\Forum;
+use App\Models\Post;
+use App\Models\ReadingChallenge;
+use App\Models\Thread;
 use App\Models\User;
-use Modules\Notification\App\Notifications\GenericNotification;
-use Modules\User\App\Contracts\UserServiceInterface;
+use App\Models\UserChallengeBook;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Modules\Notification\App\Notifications\GenericNotification;
 use Modules\Notification\App\Notifications\UserFollowedNotification;
+use Modules\User\App\Contracts\UserServiceInterface;
 
 class UserService implements UserServiceInterface
 {
@@ -246,4 +256,99 @@ class UserService implements UserServiceInterface
             'comments_created' => $user->comments()->count(),
         ];
     }
+    public function enableUser($id): bool
+    {
+        $user = User::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
+
+        if (!$user->is_disabled) {
+            throw ValidationException::withMessages([
+                'user' => ['User is not disabled']
+            ])->status(400);
+        }
+
+        $user->update([
+            'is_disabled' => false,
+            'disabled_at' => null,
+            'approval_status' => 'approved',
+        ]);
+
+        return true;
+    }
+    public function adminStats(): array{
+        $stats = [
+        'users' => [
+            'total' => User::count(),
+            'by_role' => [
+                'admin' => User::where('role', 'Admin')->count(),
+                'moderator' => User::where('role', 'Moderator')->count(),
+                'member' => User::where('role', 'Member')->count(),
+            ],
+            'by_status' => [
+                'pending' => User::where('approval_status', 'pending')->count(),
+                'approved' => User::where('approval_status', 'approved')->count(),
+                'rejected' => User::where('approval_status', 'rejected')->count(),
+                'banned' => User::where('approval_status', 'banned')->count(),
+            ],
+            // 'active_last_30_days' => User::where('last_active', '>=', now()->subDays(30))->count(),
+        ],
+        'books' => [
+            'total' => Book::count(),
+    
+            'added_last_30_days' => Book::where('created_at', '>=', now()->subDays(30))->count(),
+        ],
+        'forums' => [
+            'total' => Forum::count(),
+            'public' => Forum::where('is_public', true)->count(),
+            'private' => Forum::where('is_public', false)->count(),
+            'active_threads' => Thread::where('created_at', '>=', now()->subDays(30))->count(),
+        ],
+        'threads' => [
+            'total' => Thread::count(),
+            'locked' => Thread::where('is_locked', true)->count(),
+        ],
+        'posts' => [
+            'total' => Post::count(),
+            'flagged' => Post::where('is_flagged', true)->count(),
+        ],
+        'events' => [
+            'total' => Event::count(),
+            'upcoming' => Event::where('start_time', '>=', now())->count(),
+            'total_rsvps' => EventRsvp::count(),
+            'avg_rsvps_per_event' => Event::whereHas('rsvps')->count() ? EventRsvp::count() / Event::whereHas('rsvps')->count() : 0,
+        ],
+        'challenges' => [
+            'total' => ReadingChallenge::count(),
+            'active' => ReadingChallenge::where('is_active', true)->count(),
+            'total_participants' => UserChallengeBook::distinct('user_id')->count(),
+            'completions' => UserChallengeBook::where('status', 'completed')->count(),
+        ],
+    ];
+    return $stats;
+    }
+    public function warnUser($uuid , $request)
+    {
+
+    $request->validate(['message' => 'required|string|max:255']);
+
+    $user = User::where('uuid', $uuid)->firstOrFail();
+
+    send_notification(
+        $user,
+        'Warning',
+        "You have been warned: {$request->message}",
+        url('/dashboard'),
+        'View Dashboard'
+    );
+
+    if ($user->email_notifications) {
+        Mail::to($user->email)->send(new LibiverseEmail(
+            title: 'Warning from Libiverse',
+            content: $request->message,
+            actionUrl: url('/dashboard'),
+            actionText: 'View Dashboard'
+        ));
+        return true;
+    }
+
+}
 }

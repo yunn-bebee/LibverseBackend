@@ -22,5 +22,8 @@ interface UserServiceInterface
 
     public function disableUser($id): bool;
     public function getStats($id);
+    public function enableUser($id): bool;
+    public function adminStats(): array;
+    public function warnUser($uuid, $request);
 
  }
