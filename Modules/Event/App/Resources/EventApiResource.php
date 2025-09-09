@@ -4,6 +4,7 @@ namespace Modules\Event\App\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\User\App\Resources\UserApiResource;
 
 class EventApiResource extends JsonResource
 {
@@ -30,12 +31,12 @@ class EventApiResource extends JsonResource
                 'id' => $this->forum->id,
                 'name' => $this->forum->name,
             ] : null,
-            'rsvps' => $this->rsvps->map(function ($rsvp) {
-                return [
-                    'user_id' => $rsvp->user_id,
-                    'status' => $rsvp->status,
-                ];
-            }),
+           'rsvps' => $this->rsvps->map(function ($rsvp) {
+    return [
+       'user' => new UserApiResource($rsvp->user),
+       'status' => $rsvp->status,
+    ];
+}),
             'rsvp_counts' => $this->whenLoaded('rsvps', function () {
                 return [
                     'going' => $this->rsvps->where('status', 'going')->count(),

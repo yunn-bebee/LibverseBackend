@@ -18,4 +18,15 @@ interface ChallengeServiceInterface
     public function getUserProgress(int $userId, int $challengeId): array;
     public function getLeaderboard(int $challengeId): array;
     public function hasUserJoined(int $userId, int $challengeId): bool;
+    public function getChallengeParticipantsProgress(int $challengeId, int $perPage = 15, int $page = 1): LengthAwarePaginator;
+
+    public function bulkUpdateChallenges(array $data): array;
+
+    public function removeUserFromChallenge(int $challengeId, int $userId): void;
+
+    public function resetUserProgress(int $challengeId, int $userId): void;
+
+    public function manuallyAwardBadge(int $userId, int $badgeId, ?int $challengeId = null): void;
+
+    public function manuallyRevokeBadge(int $userId, int $badgeId): void;
 }

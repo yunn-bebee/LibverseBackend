@@ -4,15 +4,20 @@ namespace Modules\Challenge\App\Http\Controller;
 
 use App\Helpers\apiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\Badge;
+use App\Models\ReadingChallenge;
+
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-
 use Illuminate\Support\Facades\Auth;
 use Modules\Challenge\App\Contracts\ChallengeServiceInterface;
+use Modules\Challenge\App\Http\Requests\BulkUpdateChallengesRequest;
 use Modules\Challenge\App\Http\Requests\ChallengeBookRequest;
 use Modules\Challenge\App\Http\Requests\ChallengeRequest;
 use Modules\Challenge\App\Http\Requests\ChallengeStatusRequest;
 use Modules\Challenge\App\Resources\ChallengeApiResource;
+use Modules\Challenge\App\Resources\UserProgressResource;
 
 
 class ChallengeApiController extends Controller
@@ -181,4 +186,80 @@ public function addBook(ChallengeBookRequest $request, string $challengeId): Jso
             204
         );
     }
+     /**
+     * Get paginated list of users and their progress for a specific challenge.
+     */
+    public function getChallengeParticipants(Request $request, ReadingChallenge $challenge): JsonResponse
+    {
+        $paginationParams = getPaginationParams($request);
+        $participants = $this->challengeService->getChallengeParticipantsProgress(
+            $challenge->id,
+            $paginationParams['perPage'],
+            $paginationParams['page']
+        );
+
+        return apiResponse(
+            true,
+            'Challenge participants retrieved successfully',
+            UserProgressResource::collection($participants),
+            200,
+            [],
+            $participants
+        );
+    }
+
+    /**
+     * Update multiple challenges at once.
+     */
+    public function bulkUpdate(BulkUpdateChallengesRequest $request): JsonResponse
+    {
+        $result = $this->challengeService->bulkUpdateChallenges($request->validated());
+        return apiResponse(
+            true,
+            "Successfully updated {$result['success_count']} challenges. Failed to update {$result['failure_count']}.",
+            $result,
+            200
+        );
+    }
+
+    /**
+     * Remove a user from a challenge.
+     */
+    public function removeUserFromChallenge(ReadingChallenge $challenge, User $user): JsonResponse
+    {
+        $this->challengeService->removeUserFromChallenge($challenge->id, $user->id);
+        return apiResponse(true, 'User successfully removed from challenge.', null, 200);
+    }
+
+    /**
+     * Reset a user's progress in a challenge.
+     */
+    public function resetUserProgress(ReadingChallenge $challenge, User $user): JsonResponse
+    {
+        $this->challengeService->resetUserProgress($challenge->id, $user->id);
+        return apiResponse(true, "User's progress has been successfully reset.", null, 200);
+    }
+
+    /**
+     * Manually award a badge to a user.
+     */
+    public function manuallyAwardBadge(Request $request, User $user): JsonResponse
+    {
+        $request->validate(['badge_id' => 'required|exists:badges,id']);
+        $badgeId = $request->input('badge_id');
+        $challengeId = $request->input('challenge_id'); // Optional
+
+        $this->challengeService->manuallyAwardBadge($user->id, $badgeId, $challengeId);
+        return apiResponse(true, 'Badge awarded successfully.', null, 200);
+    }
+
+    /**
+     * Revoke a badge from a user.
+     */
+    public function manuallyRevokeBadge(User $user, Badge $badge): JsonResponse
+    {
+        $this->challengeService->manuallyRevokeBadge($user->id, $badge->id);
+        return apiResponse(true, 'Badge revoked successfully.', null, 200);
+    }
+
 }

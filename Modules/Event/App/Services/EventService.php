@@ -17,6 +17,10 @@ class EventService implements EventServiceInterface
     {
         $query = Event::with(['creator', 'forum', 'rsvps']);
 
+       if (Auth::user()->role === 'admin') {
+    $query = Event::with(['creator', 'forum', 'rsvps', 'rsvps.user', 'rsvps.user.profile']);
+}
+
         // Filter by upcoming events
         if (isset($filters['upcoming']) && $filters['upcoming']) {
             $query->where('start_time', '>', now());

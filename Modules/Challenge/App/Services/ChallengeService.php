@@ -16,15 +16,9 @@ class ChallengeService implements ChallengeServiceInterface
 {
     public function getAll(array $filters = [], int $perPage = 10, int $page = 1): LengthAwarePaginator
     {
-        $query = ReadingChallenge::with(['badge', 'books', 'creator']);
+        $query = ReadingChallenge::with(['badge', 'books', 'creator' ,'participants']);
 
-        // Only show active challenges to non-admins
-        if (!Auth::check() || (Auth::check() && !Auth::user()->isAdmin())) {
-            $query->where('is_active', true)
-                  ->where('start_date', '<=', now())
-                  ->where('end_date', '>=', now());
-        }
-
+       
         $challenges = $query->orderBy('created_at', 'desc')
                           ->paginate($perPage, ['*'], 'page', $page);
 
@@ -340,5 +334,135 @@ class ChallengeService implements ChallengeServiceInterface
             ]);
         }
     }
+ public function getChallengeParticipantsProgress(int $challengeId, int $perPage = 15, int $page = 1): LengthAwarePaginator
+    {
+        $challenge = ReadingChallenge::findOrFail($challengeId);
 
+        // Get paginated users who have joined the challenge
+        $participants = $challenge->participants()->paginate($perPage, ['*'], 'page', $page);
+
+        $participants->getCollection()->transform(function ($user) use ($challenge) {
+            $completedBooksCount = UserChallengeBook::where('user_id', $user->id)
+                ->where('challenge_id', $challenge->id)
+                ->where('status', 'completed')
+                ->count();
+
+            $hasBadge = UserBadge::where('user_id', $user->id)
+                ->where('badge_id', $challenge->badge_id)
+                ->exists();
+
+            $user->progress = [
+                'books_completed' => $completedBooksCount,
+                'target_count' => $challenge->target_count,
+                'percentage' => $challenge->target_count > 0 ? round(($completedBooksCount / $challenge->target_count) * 100) : 0,
+                'has_badge' => $hasBadge,
+            ];
+            return $user;
+        });
+
+        return $participants;
+    }
+
+    public function bulkUpdateChallenges(array $data): array
+    {
+        $challengeIds = $data['challenge_ids'];
+        $updateData = $data['updates'];
+        $successCount = 0;
+        $failureCount = 0;
+        $failedIds = [];
+
+        DB::transaction(function () use ($challengeIds, $updateData, &$successCount, &$failureCount, &$failedIds) {
+            // Validate all challenge IDs exist first
+            $existingChallenges = ReadingChallenge::whereIn('id', $challengeIds)->pluck('id');
+            $nonExistentIds = array_diff($challengeIds, $existingChallenges->toArray());
+
+            if (!empty($nonExistentIds)) {
+                $failureCount = count($nonExistentIds);
+                $failedIds = $nonExistentIds;
+                // Stop the transaction by throwing an exception if any ID is invalid.
+                throw new \Exception('Invalid challenge IDs provided.');
+            }
+
+            // Perform the update
+            $updatedRows = ReadingChallenge::whereIn('id', $challengeIds)->update($updateData);
+            $successCount = $updatedRows;
+        });
+
+        return [
+            'success_count' => $successCount,
+            'failure_count' => $failureCount,
+            'failed_ids' => $failedIds,
+        ];
+    }
+
+    public function removeUserFromChallenge(int $challengeId, int $userId): void
+    {
+        UserChallengeBook::where('challenge_id', $challengeId)
+            ->where('user_id', $userId)
+            ->delete();
+    }
+
+    public function resetUserProgress(int $challengeId, int $userId): void
+    {
+        // This is destructive. It removes all progress for the user in this challenge.
+        // It also revokes the badge if earned from this challenge.
+        DB::transaction(function () use ($challengeId, $userId) {
+            UserChallengeBook::where('challenge_id', $challengeId)
+                ->where('user_id', $userId)
+                ->delete();
+
+            $challenge = ReadingChallenge::find($challengeId);
+            if ($challenge && $challenge->badge_id) {
+                UserBadge::where('user_id', $userId)
+                    ->where('badge_id', $challenge->badge_id)
+                    ->where('challenge_id', $challengeId)
+                    ->delete();
+            }
+        });
+    }
+
+    public function manuallyAwardBadge(int $userId, int $badgeId, ?int $challengeId = null): void
+    {
+        UserBadge::firstOrCreate(
+            [
+                'user_id' => $userId,
+                'badge_id' => $badgeId,
+            ],
+            [
+                'earned_at' => now(),
+                'challenge_id' => $challengeId,
+            ]
+        );
+    }
+
+    public function manuallyRevokeBadge(int $userId, int $badgeId): void
+    {
+        UserBadge::where('user_id', $userId)
+            ->where('badge_id', $badgeId)
+            ->delete();
+    }
+
+    public function getChallengeStats(): array
+    {
+        $activeChallenges = ReadingChallenge::where('is_active', true)->count();
+        $totalParticipants = DB::table('user_challenge_books')->distinct('user_id')->count('user_id');
+
+        $completions = UserBadge::whereNotNull('challenge_id')->count();
+
+        $mostPopular = ReadingChallenge::withCount('participants')
+            ->orderBy('participants_count', 'desc')
+            ->first();
+
+        return [
+            'total_challenges' => ReadingChallenge::count(),
+            'active_challenges' => $activeChallenges,
+            'total_participants' => $totalParticipants,
+            'total_challenge_completions' => $completions,
+            'most_popular_challenge' => $mostPopular ? [
+                'id' => $mostPopular->id,
+                'name' => $mostPopular->name,
+                'participant_count' => $mostPopular->participants_count,
+            ] : null,
+        ];
+    }
 }

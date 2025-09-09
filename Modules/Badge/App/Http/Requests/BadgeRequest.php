@@ -14,7 +14,9 @@ class BadgeRequest extends FormRequest
     public function rules()
     {
         return [
-            // Validation rules
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+           'icon_url' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ];
     }
 }

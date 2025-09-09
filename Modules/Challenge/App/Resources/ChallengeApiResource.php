@@ -17,6 +17,11 @@ class ChallengeApiResource extends JsonResource
             'description' => $this->description,
             'target_count' => $this->target_count,
             'is_active' => $this->is_active,
+            'start_date' => $this->start_date,
+            'end_date' => $this->end_date ,
+            'participants_count' => $this->whenLoaded('participants', function () {
+                return $this->participants->count();
+            }),
             'badge' => $this->whenLoaded('badge', function () {
                 return [
                     'id' => $this->badge->id,

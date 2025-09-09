@@ -11,7 +11,7 @@ class BadgeApiResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'icon_url' => $this->icon_url,
+              'icon_url' => $this->icon_url,
             'description' => $this->description,
             'type' => $this->type,
             'awarded_at' => $this->when(isset($this->pivot), function () {
