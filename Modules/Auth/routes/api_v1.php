@@ -16,7 +16,7 @@ Route::prefix('auth')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthApiController::class, 'logout']);
-
+     
         // Admin approval routes
         Route::prefix('admin')->group(function () {
             Route::get('/pending-users', [ApprovalController::class, 'pendingUsers']);

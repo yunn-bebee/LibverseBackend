@@ -19,7 +19,7 @@ class EventFactory extends Factory
     {
         $eventTypes = ['Workshop', 'AuthorTalk', 'BookClub', 'LanguageSession'];
         $locationTypes = ['physical', 'virtual', 'hybrid'];
-        
+
         return [
             'title' => $this->faker->words(4, true) . ' Event',
             'slug' => $this->faker->slug,
@@ -31,7 +31,7 @@ class EventFactory extends Factory
             'physical_address' => $this->faker->address,
             'zoom_link' => $this->faker->url,
             'max_attendees' => $this->faker->numberBetween(10, 100),
-            'cover_image' => 'events/' . $this->faker->image('public/storage/events', 800, 600, 'event', false),
+            'cover_image' => 'events/' ,
             'created_by' => User::factory(),
             'forum_id' => Forum::factory(),
         ];

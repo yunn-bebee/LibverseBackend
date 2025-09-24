@@ -3,8 +3,9 @@
 namespace App\Models;
 
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class ReadingChallenge extends Model
 {
@@ -34,15 +35,16 @@ class ReadingChallenge extends Model
         'book_id'
     );
 }
-public function getIsActiveAttribute($value)
-    {
-        $now = Carbon::now('Asia/Tokyo'); // Use JST as per your context
-        $startDate = Carbon::parse($this->attributes['start_date']);
-        $endDate = Carbon::parse($this->attributes['end_date']);
+public function getIsCurrentAttribute(): bool
+{
+    $now = Carbon::now('Asia/Tokyo');
+    $startDate = Carbon::parse($this->attributes['start_date']);
+    $endDate = Carbon::parse($this->attributes['end_date']);
 
-        // Active if current date is between start_date and end_date (inclusive)
-        return $startDate->lte($now) && $endDate->gte($now);
-    }
+    return $startDate->lte($now) && $endDate->gte($now);
+}
+
+
 public function participants()
 {
     return $this->belongsToMany(

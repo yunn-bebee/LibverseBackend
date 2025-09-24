@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class UserBadge extends Model
 {
-     use HasFactory; 
+     use HasFactory;
       protected $table = 'user_badges';
-    
+
     protected $fillable = ['user_id', 'badge_id', 'earned_at', 'challenge_id'];
-    
+
     public $timestamps = false;
 
     public function user()

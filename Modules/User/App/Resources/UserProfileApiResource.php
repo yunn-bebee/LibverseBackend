@@ -4,6 +4,7 @@ namespace Modules\User\App\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class UserProfileApiResource extends JsonResource
 {
@@ -16,10 +17,12 @@ class UserProfileApiResource extends JsonResource
     {
                 return [
             'bio' => $this->bio,
-            'profilePicture' => $this->profile_picture,
+
             'website' => $this->website,
             'location' => $this->location,
-            'readingPreferences' => $this->reading_preferences,
+            'profilePicture' => $this->profile_picture
+                ? url('storage/' . $this->profile_picture)
+                : "",
             'lastActive' => $this->last_active,
         ];
     }

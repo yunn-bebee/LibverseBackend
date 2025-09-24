@@ -1,9 +1,13 @@
 <?php
 
 namespace Modules\Auth\App\Http\Controller\Admin;
-use Illuminate\Routing\Controller;
+
+use App\Mail\LibiverseEmail;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Mail;
 use Modules\Auth\App\Contracts\AuthServiceInterface;
 
 class ApprovalController extends Controller
@@ -22,16 +26,32 @@ class ApprovalController extends Controller
             'Pending users retrieved',
             $users
         );
+
     }
 
     public function approveUser(User $user): JsonResponse
     {
         $result = $this->authService->approveUser($user);
+        if (!$result) {
+            return apiResponse(
+                false,
+                'User approval failed',
+                null,
+                500
+            );
+        }
+          Mail::to($user->email)->send(new LibiverseEmail(
+        'Your Libiverse Account is Approved',
+        'Congratulations! Your Libiverse account has been approved. You can now log in and enjoy all the features.',
+        url('/login'), // action URL
+        'Login Now'    // action button text
+    ));
         return apiResponse(
             true,
             'User approved successfully',
             $result
         );
+
     }
 
     public function rejectUser(User $user): JsonResponse

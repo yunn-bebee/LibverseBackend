@@ -13,9 +13,10 @@ class PostApiResource extends JsonResource
     {
         $user = Auth::user();
 
-        $data = [
+        return [  // No semicolon here—array declaration continues
             'id' => $this->id,
-            'uuid' => $this->id,
+            'thread_id' => $this->thread_id,
+            'uuid' => $this->uuid ?? $this->id,  // Use actual UUID if available
             'content' => $this->content,
             'is_flagged' => $this->is_flagged,
             'user' => new UserApiResource($this->whenLoaded('user')),
@@ -32,9 +33,9 @@ class PostApiResource extends JsonResource
                 return $this->media->map(function ($media) {
                     return [
                         'id' => $media->id,
-                        'file_url' => $media->file_url,
+                        'file_url' => $media->file_url ? url($media->file_url) : null,
                         'file_type' => $media->file_type,
-                        'thumbnail_url' => $media->thumbnail_url,
+                      'thumbnail_url' => $media->thumbnail_url ? url($media->thumbnail_url) : null,
                         'caption' => $media->caption,
                     ];
                 });
@@ -44,26 +45,20 @@ class PostApiResource extends JsonResource
             'replies_count' => $this->replies_count ?? 0,
             'is_liked' => $user ? $this->likes->contains('id', $user->id) : false,
             'is_saved' => $user ? $this->saves->contains('id', $user->id) : false,
-            'created_at' => $this->created_at->toISOString(),
-            'updated_at' => $this->updated_at->toISOString(),
-        ];
-
-
-            $data['reports'] = $this->whenLoaded('reports', function () {
+            'created_at' => $this->created_at,  // Null-safe operator (PHP 8+)
+            'updated_at' => $this->updated_at,  // Null-safe operator (PHP 8+)
+            'reports' => $this->whenLoaded('reports', function () {  // Moved inside the array
                 return $this->reports->map(function ($report) {
                     return [
-                        'id' => $report->post_id,
+                        'id' => $report->id,  // Use report's own ID, not post_id
                         'user' => new UserApiResource($report->user),
                         'reason' => $report->reason,
                         'status' => $report->status,
-                        'reviewed_at' => $report->reviewed_at ? $report->reviewed_at : null,
+                        'reviewed_at' => $report->reviewed_at,  // Null-safe
                         'reviewed_by' => $report->reviewer ? new UserApiResource($report->reviewer) : null,
-
                     ];
                 });
-            });
-
-
-        return $data;
+            }),
+        ];
     }
 }

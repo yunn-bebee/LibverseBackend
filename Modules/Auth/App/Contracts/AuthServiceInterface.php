@@ -12,4 +12,5 @@ interface AuthServiceInterface
     public function getPendingUsers(): array;
     public function approveUser(User $user): array;
     public function rejectUser(User $user): void;
+   
 }

@@ -2,9 +2,10 @@
 
 namespace Modules\User\App\Resources;
 
-use Modules\User\App\Resources\UserProfileApiResource;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\User\App\Resources\UserProfileApiResource;
 
 class UserApiResource extends JsonResource
 {
@@ -27,6 +28,11 @@ class UserApiResource extends JsonResource
             'profile' => new UserProfileApiResource($this->whenLoaded('profile')),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
+            'forum_status' => $this->whenPivotLoaded('forum_user', fn() => [
+                'status' => $this->pivot->status,
+                'approved_at' => $this->pivot->approved_at ? $this->pivot->approved_at->toDateTimeString() : null,
+            ]),
+           'is_followed' => Auth::check() ? $this->followers()->where('follower_id', Auth::id())->exists() : false,
         ];
     }
 }

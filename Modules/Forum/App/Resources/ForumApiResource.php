@@ -23,8 +23,12 @@ class ForumApiResource extends JsonResource
                 'title' => $this->book->title,
             ] : null,
             'threads_count' => $this->threads_count,
+            'participants_count' => $this->members_count ?? 0,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            'is_joined' => $request->user() ? $this->members->contains($request->user()->id) : false,
+            'is_pending' => $request->user() ? $this->joinRequests->contains($request->user()->id) : false,
+            
         ];
     }
 }

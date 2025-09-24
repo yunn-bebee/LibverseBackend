@@ -43,4 +43,5 @@ class AuthApiController extends Controller
             'Successfully logged out'
         );
     }
+
 }

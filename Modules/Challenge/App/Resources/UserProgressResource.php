@@ -4,6 +4,7 @@ namespace Modules\Challenge\App\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\User\App\Resources\UserApiResource;
 
 class UserProgressResource extends JsonResource
 {
@@ -13,8 +14,8 @@ class UserProgressResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'user_id' => $this->id,
-            'username' => $this->username,
+            
+            'user' => new UserApiResource($this->user),
             'email' => $this->email,
             'progress' => [
                 'books_completed' => $this->progress['books_completed'],
@@ -22,6 +23,7 @@ class UserProgressResource extends JsonResource
                 'percentage' => $this->progress['percentage'],
                 'has_badge_awarded' => $this->progress['has_badge'],
             ],
+            'books' => $this->books,
             'joined_at' => $this->pivot->created_at,
         ];
     }

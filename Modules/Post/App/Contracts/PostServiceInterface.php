@@ -2,6 +2,7 @@
 
 namespace Modules\Post\App\Contracts;
 
+use App\Models\Media;
 use App\Models\Post;
 use App\Models\PostReport;
 use App\Models\Thread;
@@ -16,7 +17,7 @@ interface PostServiceInterface
      * @param array $data Post data (content, parent_post_id, book_id).
      * @return Post The created post.
      */
-    public function create(Thread $thread, array $data): Post;
+    public function create(Thread $thread, array $data, array $files = []): Post;
 
     /**
      * Fetch posts for a thread with pagination and optional filters.
@@ -96,7 +97,11 @@ interface PostServiceInterface
      * @return array The created media data.
      */
     public function uploadMedia(Post $post, array $data): array;
+    public function updateMedia(Media $media, array $data): array;
+     public function deleteMedia(Media $media): bool;
     public function getReportedPosts(int $perPage = 15): LengthAwarePaginator;
     public function unflag(Post $post): void;
     public function reportPost(Post $post, array $data): PostReport;
+    public function getSavedPosts(int $perPage = 15): LengthAwarePaginator;
+
 }

@@ -12,6 +12,7 @@ class PostFactory extends Factory
     public function definition()
     {
         return [
+            'uuid' => $this->faker->uuid(),
             'thread_id' => Thread::factory(),
             'user_id' => User::factory(),
             'content' => $this->faker->paragraphs(2, true),

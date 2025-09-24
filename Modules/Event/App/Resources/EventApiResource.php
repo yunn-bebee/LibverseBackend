@@ -2,8 +2,10 @@
 
 namespace Modules\Event\App\Resources;
 
+
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Auth;
 use Modules\User\App\Resources\UserApiResource;
 
 class EventApiResource extends JsonResource
@@ -27,6 +29,7 @@ class EventApiResource extends JsonResource
                 'id' => $this->creator->id,
                 'name' => $this->creator->name,
             ],
+            'user_role'=> Auth::user() ? Auth::user()->role : null,
             'forum' => $this->forum ? [
                 'id' => $this->forum->id,
                 'name' => $this->forum->name,

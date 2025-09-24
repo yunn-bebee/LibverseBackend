@@ -3,20 +3,22 @@
 
 namespace Modules\Forum\App\Http\Controller;
 
-use App\Http\Controllers\Controller;
+use App\Enums\UserRole;
+use App\Models\User;
 use App\Models\Forum;
 use App\Models\Thread;
-use App\Models\User;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Modules\User\App\Resources\UserApiResource;
+use Modules\Forum\App\Http\Requests\ForumRequest;
+use Modules\Forum\App\Resources\ForumApiResource;
+use Modules\Forum\App\Http\Requests\ThreadRequest;
+use Modules\Forum\App\Resources\ThreadApiResource;
 use Modules\Forum\App\Contracts\ForumServiceInterface;
 use Modules\Forum\App\Contracts\ThreadServiceInterface;
-use Modules\Forum\App\Http\Requests\ForumRequest;
-use Modules\Forum\App\Http\Requests\ThreadRequest;
-use Modules\Forum\App\Resources\ForumApiResource;
-use Modules\Forum\App\Resources\ThreadApiResource;
-use Modules\User\App\Resources\UserApiResource;
+use Modules\Forum\App\Resources\ActivityFeedApiResource;
 
 class ForumApiController extends Controller
 {
@@ -145,6 +147,31 @@ class ForumApiController extends Controller
         );
     }
 
+    public function updateThread(Thread $thread, ThreadRequest $request): JsonResponse
+    {
+        $thread = $this->threadService->update($thread, $request->validated());
+
+        return apiResponse(
+            true,
+            'Thread updated successfully',
+            new ThreadApiResource($thread)
+        );
+    }
+
+    /**
+     * Delete a forum (cascades to threads/posts).
+     */
+    public function destroyThread(Thread $thread): JsonResponse
+    {
+        $this->threadService->delete($thread);
+
+        return apiResponse(
+            true,
+            'Thread deleted successfully',
+            null,
+            204
+        );
+    }
     public function showThread(Thread $thread): JsonResponse
     {
         $thread = $this->threadService->getById($thread->id);
@@ -227,11 +254,14 @@ class ForumApiController extends Controller
     /**
      * List forum members.
      */
+    /**
+     * List forum members and pending join requests with status.
+     */
     public function members(Forum $forum): JsonResponse
     {
         try {
             $members = $this->forumService->getForumMembers($forum);
-            return apiResponse(true, 'Forum members retrieved successfully', UserApiResource::collection($members));
+            return apiResponse(true, 'Forum members and pending join requests retrieved successfully', UserApiResource::collection($members));
         } catch (\Exception $e) {
             return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
         }
@@ -271,17 +301,19 @@ class ForumApiController extends Controller
 
     /**
      * Fetch activity feed for followed users.
-     */
+        */
     public function activityFeed(Request $request): JsonResponse
     {
         try {
             $perPage = $request->query('per_page', 15);
-            $threads = $this->forumService->getActivityFeed(Auth::user(), $perPage);
-            return apiResponse(true, 'Activity feed retrieved successfully', ThreadApiResource::collection($threads));
+            $filters = ['per_page' => $perPage];
+            $activities = $this->forumService->getActivityFeed($filters);
+            return apiResponse(true, 'Activity feed retrieved successfully', ActivityFeedApiResource::collection($activities));
         } catch (\Exception $e) {
             return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
         }
     }
+
 
     /**
      * Authorize forum creator or admin.
@@ -289,7 +321,7 @@ class ForumApiController extends Controller
     protected function authorizeCreatorOrAdmin(Forum $forum): void
     {
         $user = Auth::user();
-        if (!$user || ($forum->created_by !== $user->id && !$user->hasRole('admin'))) {
+        if (!$user || ($forum->created_by !== $user->id && !$user->hasRole(UserRole::ADMIN->label()))) {
             throw new \Exception('Unauthorized to perform this action', 403);
         }
     }

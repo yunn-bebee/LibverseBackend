@@ -69,6 +69,6 @@ interface ForumServiceInterface
      * @param int $perPage
      * @return LengthAwarePaginator
      */
-    public function getActivityFeed(User $user, int $perPage = 15): LengthAwarePaginator;
+    public function getActivityFeed(array $filters = []): LengthAwarePaginator;
 }
 

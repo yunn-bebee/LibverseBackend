@@ -16,7 +16,7 @@ class BookFactory extends Factory
             'title' => $this->faker->sentence(3),
 
             'author' => $this->faker->name,
-             'cover_image' => 'covers/' . $this->faker->image('public/storage/covers', 300, 450, 'book', false),
+             'cover_image' => 'covers/',
             'description' => $this->faker->paragraphs(3, true),
             'genres' => json_encode($this->faker->randomElements([
                 'Fiction', 'Non-Fiction', 'Science Fiction',

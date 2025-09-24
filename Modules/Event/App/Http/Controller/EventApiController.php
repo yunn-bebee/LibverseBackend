@@ -23,7 +23,7 @@ class EventApiController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['upcoming', 'past', 'search']);
+        $filters = $request->only(['upcoming', 'past', 'search', 'isrsvp']);
         $paginationParams = getPaginationParams($request);
 
         $events = $this->eventService->getAll(

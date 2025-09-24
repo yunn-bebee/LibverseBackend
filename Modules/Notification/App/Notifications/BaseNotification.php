@@ -2,8 +2,10 @@
 
 namespace Modules\Notification\App\Notifications;
 
-use Illuminate\Notifications\Notification;
+use App\Mail\LibiverseEmail;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Mail;
 
 abstract class BaseNotification extends Notification
 {
@@ -44,12 +46,13 @@ abstract class BaseNotification extends Notification
         return $this->toArray($notifiable);
     }
 
-    public function toMail($notifiable): MailMessage
-    {
-        return (new MailMessage)
-            ->subject($this->getTitle())
-            ->line($this->getMessage())
-            ->action($this->getActionText() ?? 'View Details', $this->getActionUrl())
-            ->line('Thank you for using Libiverse!');
-    }
+    public function toMail($notifiable): LibiverseEmail
+{
+      return (new LibiverseEmail(
+        $this->getTitle(),
+        $this->getMessage(),
+        $this->getActionUrl() ?? url('/'),
+        $this->getActionText() ?? 'View'
+    ))->to($notifiable->email);
+}
 }

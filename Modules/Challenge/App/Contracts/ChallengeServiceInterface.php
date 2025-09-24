@@ -13,7 +13,13 @@ interface ChallengeServiceInterface
     public function update(int $id, array $data): ReadingChallenge;
     public function delete(int $id): bool;
     public function joinChallenge(int $challengeId, int $userId): array;
-    public function addBookToChallenge(int $challengeId, int $userId, int $bookId, string $status): bool;
+       public function getBooks(int $challengeId, int $perPage = 15, int $page = 1): LengthAwarePaginator;
+    public function addUserBookToChallenge(int $challengeId, int $userId, int $bookId, string $status): bool;
+
+    public function removeUserBookFromChallenge(int $challengeId, int $userId, int $bookId): bool;
+    public function addBookToChallenge(int $challengeId,  int $bookId): bool;
+
+    public function removeBookFromChallenge(int $challengeId, int $bookId): bool;
     public function updateBookStatus(int $recordId, string $status, int $rating = null, string $review = null): bool;
     public function getUserProgress(int $userId, int $challengeId): array;
     public function getLeaderboard(int $challengeId): array;

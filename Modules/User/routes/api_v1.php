@@ -6,11 +6,12 @@ use Modules\User\App\Http\Controller\ProfileApiController;
 
 Route::middleware(['auth:sanctum'])->group(function () {
     // User management routes
+       Route::get('/auth/me', [UserApiController::class, 'me']);
 Route::apiResource('user',UserApiController::class);
    Route::put('/user/{id}/ban', [UserApiController::class, 'ban']);
 // Add these routes
 Route::prefix('profile')->group(function () {
-    Route::get('/', [ProfileApiController::class, 'show']);
+    Route::get('/{id}', [ProfileApiController::class, 'show']);
     Route::put('/', [ProfileApiController::class, 'update']);
     Route::delete('/', [ProfileApiController::class, 'destroy']);
 
@@ -29,5 +30,5 @@ Route::middleware(['auth:sanctum' , 'role:admin'])->group(function () {
     Route::put('/admin/users/{user}/role', [UserApiController::class, 'updateRole']);
     Route::put('/admin/users/{user}/enable', [UserApiController::class, 'enable']);
     Route::get('/admin/stats', [UserApiController::class, 'adminStats'])->name('admin.stats');
-    
+
 });

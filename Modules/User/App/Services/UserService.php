@@ -12,6 +12,7 @@ use App\Models\ReadingChallenge;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\UserChallengeBook;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -97,16 +98,9 @@ class UserService implements UserServiceInterface
         $user = User::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
 
         try {
-            $validated = validator($data, [
-                'username' => 'sometimes|string|max:255|unique:users,username,'.$user->id,
-                'email' => 'sometimes|email|unique:users,email,'.$user->id,
-                'password' => 'sometimes|string|min:8',
-                'role' => 'sometimes|string|in:admin,moderator,member',
-                'date_of_birth' => 'nullable|date',
-                'approval_status' => 'sometimes|string|in:pending,approved,rejected',
-            ])->validate();
 
-            $updateData = $this->prepareUpdateData($validated, $user);
+
+            $updateData = $this->prepareUpdateData($data, $user);
             $user->update($updateData);
 
             return [
@@ -293,7 +287,7 @@ class UserService implements UserServiceInterface
         ],
         'books' => [
             'total' => Book::count(),
-    
+
             'added_last_30_days' => Book::where('created_at', '>=', now()->subDays(30))->count(),
         ],
         'forums' => [
@@ -350,5 +344,13 @@ class UserService implements UserServiceInterface
         return true;
     }
 
-}
+}    public function me(): User
+    {
+        $userId = Auth::id();
+        $user = User::with('profile')->find($userId);
+        if (!$user) {
+            abort(401, 'Unauthenticated');
+        }
+        return $user;
+    }
 }

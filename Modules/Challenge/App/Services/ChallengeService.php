@@ -2,44 +2,84 @@
 
 namespace Modules\Challenge\App\Services;
 
-use Modules\Challenge\App\Contracts\ChallengeServiceInterface;
-use App\Models\UserChallengeBook;
-use App\Models\ChallengeBook;
 use App\Models\Badge;
+use App\Models\ChallengeBook;
 use App\Models\ReadingChallenge;
+use App\Models\User;
 use App\Models\UserBadge;
+use App\Models\UserChallengeBook;
+use Exception;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Modules\Challenge\App\Contracts\ChallengeServiceInterface;
+use Modules\User\App\Resources\UserProfileApiResource;
+
 
 class ChallengeService implements ChallengeServiceInterface
 {
-    public function getAll(array $filters = [], int $perPage = 10, int $page = 1): LengthAwarePaginator
-    {
-        $query = ReadingChallenge::with(['badge', 'books', 'creator' ,'participants']);
+public function getAll(array $filters = [], int $perPage = 10, int $page = 1): LengthAwarePaginator
+{
+    $query = ReadingChallenge::with(['badge', 'books', 'creator', 'participants']);
 
-       
-        $challenges = $query->orderBy('created_at', 'desc')
-                          ->paginate($perPage, ['*'], 'page', $page);
+    if (isset($filters['active'])) {
+        $query->where('start_date', '<=', now('Asia/Tokyo'))
+              ->where('end_date', '>=', now('Asia/Tokyo'));
+    }
 
-        // Add joined status and progress for each challenge if user is authenticated
-        if (Auth::check()) {
-            $userId = Auth::id();
-            $challenges->getCollection()->transform(function ($challenge) use ($userId) {
-                $challenge->has_joined = $this->hasUserJoined($userId, $challenge->id);
-                if ($challenge->has_joined) {
-                    $challenge->progress = $this->getUserProgress($userId, $challenge->id);
-                }
-                return $challenge;
-            });
+    if (isset($filters['current'])) {
+        $query->where('start_date', '<=', now())
+              ->where('end_date', '>=', now());
+    }
+
+    // Filter by user's joined challenges
+    if (isset($filters['is_joined']) && filter_var($filters['is_joined'], FILTER_VALIDATE_BOOLEAN)) {
+        $userId = Auth::id();
+        if (!$userId) {
+            Log::warning('is_joined filter applied without authenticated user', ['filters' => $filters]);
+            throw new Exception('is_joined filter requires an authenticated user', 403);
         }
+        $query->whereHas('participants', function ($q) use ($userId) {
+            $q->where('user_challenge_books.user_id', $userId);
+        });
+    }
+
+    try {
+        $challenges = $query->orderBy('created_at', 'desc')
+                           ->paginate($perPage, ['*'], 'page', $page);
+
+        $userId = Auth::id();
+        $challenges->getCollection()->transform(function ($challenge) use ($userId) {
+            $challenge->has_joined = $this->hasUserJoined($userId, $challenge->id);
+            if ($challenge->has_joined) {
+                $challenge->progress = $this->getUserProgress($userId, $challenge->id);
+            } else {
+                $challenge->has_joined = false;
+            }
+            return $challenge;
+        });
+
+        Log::info('Challenges retrieved successfully', [
+            'filters' => $filters,
+            'user_id' => $userId ?? 'none',
+            'total_results' => $challenges->total(),
+        ]);
 
         return $challenges;
+    } catch (\Exception $e) {
+        Log::error('Error retrieving challenges', [
+            'error' => $e->getMessage(),
+            'filters' => $filters,
+            'user_id' => $userId ?? 'none',
+        ]);
+        throw $e;
     }
+}
 
     public function find(int $id): ?ReadingChallenge
     {
-        $challenge = ReadingChallenge::with(['badge', 'books', 'creator'])->find($id);
+        $challenge = ReadingChallenge::with(['badge', 'creator'])->find($id);
 
         if (Auth::check() && $challenge) {
             $challenge->has_joined = $this->hasUserJoined(Auth::id(), $challenge->id);
@@ -51,10 +91,17 @@ class ChallengeService implements ChallengeServiceInterface
         return $challenge;
     }
 
+    public function getBooks(int $challengeId, int $perPage = 15, int $page = 1): LengthAwarePaginator
+    {
+        $challenge = ReadingChallenge::findOrFail($challengeId);
+        return ChallengeBook::where('reading_challenge_id', $challengeId)
+            ->with('book')
+            ->paginate($perPage, ['*'], 'page', $page);
+    }
+
     public function create(array $data): ReadingChallenge
     {
         return DB::transaction(function () use ($data) {
-            // Validate at least one book is provided
             if (!isset($data['book_ids']) || !is_array($data['book_ids']) || empty($data['book_ids'])) {
                 throw new \Exception('At least one book is required to create a challenge.');
             }
@@ -62,13 +109,8 @@ class ChallengeService implements ChallengeServiceInterface
             $data['created_by'] = Auth::id();
             $challenge = ReadingChallenge::create($data);
 
-            // Add books
             foreach ($data['book_ids'] as $bookId) {
-                ChallengeBook::create([
-                    'reading_challenge_id' => $challenge->id,
-                    'book_id' => $bookId,
-                    'added_by' => Auth::id(),
-                ]);
+                $this->addBookToChallenge($challenge->id, $bookId);
             }
 
             return $challenge->load('badge', 'creator', 'books');
@@ -80,22 +122,16 @@ class ChallengeService implements ChallengeServiceInterface
         return DB::transaction(function () use ($id, $data) {
             $challenge = ReadingChallenge::findOrFail($id);
 
-            // Validate at least one book is provided if book_ids is present
             if (isset($data['book_ids']) && (empty($data['book_ids']) || !is_array($data['book_ids']))) {
                 throw new \Exception('At least one book is required when updating challenge books.');
             }
 
             $challenge->update($data);
 
-            // Update books if provided
             if (isset($data['book_ids'])) {
                 ChallengeBook::where('reading_challenge_id', $challenge->id)->delete();
                 foreach ($data['book_ids'] as $bookId) {
-                    ChallengeBook::create([
-                        'reading_challenge_id' => $challenge->id,
-                        'book_id' => $bookId,
-                        'added_by' => Auth::id(),
-                    ]);
+                    $this->addBookToChallenge($challenge->id, $bookId);
                 }
             }
 
@@ -111,38 +147,28 @@ class ChallengeService implements ChallengeServiceInterface
         });
     }
 
-  public function joinChallenge(int $challengeId, int $userId): array
+    public function joinChallenge(int $challengeId, int $userId): array
     {
         return DB::transaction(function () use ($challengeId, $userId) {
-            // Check if already joined
             if ($this->hasUserJoined($userId, $challengeId)) {
                 throw new \Exception('You have already joined this challenge.');
             }
 
             $challenge = ReadingChallenge::with('books')->findOrFail($challengeId);
 
-            // Validate challenge is joinable
             if (!$challenge->is_active || $challenge->start_date > now() || $challenge->end_date < now()) {
                 throw new \Exception('This challenge is not currently available to join.');
             }
 
-            // Get the first book, ordered by creation time
             $firstBook = ChallengeBook::where('reading_challenge_id', $challengeId)
                                      ->orderBy('created_at', 'asc')
                                      ->first();
 
             if (!$firstBook) {
-                throw new \Exception('No books available in this challenge.');
+                throw new Exception('No books available in this challenge.');
             }
 
-            // Create user challenge record with the first book
-            UserChallengeBook::create([
-                'user_id' => $userId,
-                'challenge_id' => $challengeId,
-                'book_id' => $firstBook->book_id,
-                'status' => 'reading',
-                'started_at' => now(),
-            ]);
+            $this->addUserBookToChallenge($challengeId, $userId, $firstBook->book_id, 'reading');
 
             return [
                 'challenge' => $challenge,
@@ -151,51 +177,30 @@ class ChallengeService implements ChallengeServiceInterface
         });
     }
 
-  public function addBookToChallenge(int $challengeId, int $userId, int $bookId, string $status): bool
+    public function addUserBookToChallenge(int $challengeId, int $userId, int $bookId, string $status, bool $isBook = false): bool
     {
-        return DB::transaction(function () use ($challengeId, $userId, $bookId, $status) {
-            // Check if user has joined the challenge
-            if (!$this->hasUserJoined($userId, $challengeId)) {
-                throw new \Exception('You must join the challenge before adding a book.');
-            }
+        return DB::transaction(function () use ($challengeId, $userId, $bookId, $status, $isBook) {
 
-            $user = Auth::user();
-            $isAdminOrModerator = $user && ($user->hasRole('admin') || $user->hasRole('moderator'));
-
-            // Check if the book is part of the challenge's book list
             $challengeBook = ChallengeBook::where('reading_challenge_id', $challengeId)
                                          ->where('book_id', $bookId)
                                          ->first();
 
-            // If user is admin or moderator, allow adding the book to ChallengeBook table if not already present
-            if ($isAdminOrModerator && !$challengeBook) {
-                ChallengeBook::create([
-                    'reading_challenge_id' => $challengeId,
-                    'book_id' => $bookId,
-                    'added_by' => $userId,
-                ]);
-                // Update challengeBook to reflect the new entry for the UserChallengeBook creation below
-                $challengeBook = ChallengeBook::where('reading_challenge_id', $challengeId)
-                                             ->where('book_id', $bookId)
-                                             ->first();
+            if (!$challengeBook) {
+                throw new \Exception('The selected book is not part of this challenge.' . $challengeId . $userId . $bookId );
             }
 
-            // For regular users, validate that the book is part of the challenge's book list
-            if (!$isAdminOrModerator && !$challengeBook) {
-                throw new \Exception('The selected book is not part of this challenge.');
-            }
-
-            // Check if the book is already in the user's challenge reading list
             $existingRecord = UserChallengeBook::where('user_id', $userId)
                                               ->where('challenge_id', $challengeId)
                                               ->where('book_id', $bookId)
                                               ->first();
 
-            if ($existingRecord) {
+            if ($existingRecord && !$isBook) {
                 throw new \Exception('This book is already in your challenge reading list.');
             }
+            if ($isBook && $existingRecord) {
+                return false;
+            }
 
-            // Create a new user challenge book record
             UserChallengeBook::create([
                 'user_id' => $userId,
                 'challenge_id' => $challengeId,
@@ -207,10 +212,73 @@ class ChallengeService implements ChallengeServiceInterface
             return true;
         });
     }
-    public function updateBookStatus(int $recordId, string $status, int $rating = null, string $review = null): bool
+
+    public function removeUserBookFromChallenge(int $challengeId, int $userId, int $bookId): bool
+    {
+        return DB::transaction(function () use ($challengeId, $userId, $bookId) {
+            $user = Auth::user();
+            if (!$user || !($user->hasRole('admin') || $user->hasRole('moderator'))) {
+                throw new \Exception('Unauthorized to remove user book from challenge.');
+            }
+
+            $deleted = UserChallengeBook::where('challenge_id', $challengeId)
+                                       ->where('user_id', $userId)
+                                       ->where('book_id', $bookId)
+                                       ->delete();
+            return $deleted > 0;
+        });
+    }
+
+    public function addBookToChallenge(int $challengeId, int $bookId): bool
+    {
+        return DB::transaction(function () use ($challengeId, $bookId) {
+            $user = Auth::user();
+            // if (!$user || !($user->hasRole('admin') || $user->hasRole('moderator'))) {
+            //     throw new \Exception('Unauthorized to add book to challenge.');
+            // }
+
+            $challenge = ReadingChallenge::findOrFail($challengeId);
+
+            $existingBook = ChallengeBook::where('reading_challenge_id', $challengeId)
+                                        ->where('book_id', $bookId)
+                                        ->first();
+
+            if ($existingBook) {
+                throw new \Exception('This book is already part of the challenge.');
+            }
+
+            ChallengeBook::create([
+                'reading_challenge_id' => $challengeId,
+                'book_id' => $bookId,
+                'added_by' => Auth::id(),
+            ]);
+
+            return true;
+        });
+    }
+
+    public function removeBookFromChallenge(int $challengeId, int $bookId): bool
+    {
+        return DB::transaction(function () use ($challengeId, $bookId) {
+            $user = Auth::user();
+            // if (!$user || !($user) || $user->hasRole('moderator'))) {
+            //     throw new \Exception('Unauthorized to remove book from challenge.');
+            // }
+
+            $challenge = ReadingChallenge::findOrFail($challengeId);
+            $deleted = ChallengeBook::where('reading_challenge_id', $challengeId)
+                                   ->where('book_id', $bookId)
+                                   ->delete();
+            return $deleted > 0;
+        });
+    }
+
+    public function updateBookStatus(int $recordId, string $status, ?int $rating = null, ?string $review = null): bool
     {
         return DB::transaction(function () use ($recordId, $status, $rating, $review) {
-            $record = UserChallengeBook::findOrFail($recordId);
+            $record = UserChallengeBook::where('user_id', Auth::id())
+                ->where('book_id', $recordId)
+                ->firstOrFail();
             $challengeId = $record->challenge_id;
             $userId = $record->user_id;
 
@@ -250,14 +318,49 @@ class ChallengeService implements ChallengeServiceInterface
             ->count();
         $totalBooks = ChallengeBook::where('reading_challenge_id', $challengeId)->count();
         $isCompleted = $completedBooks >= $totalBooks;
+        $books = UserChallengeBook::where('user_id', $userId)
+            ->where('challenge_id', $challengeId)
+            ->with('book')
+            ->get()
+            ->map(function ($record) {
+                return [
+                    'id' => $record->book->id,
+                    'title' => $record->book->title,
+                    'author' => $record->book->author,
+                    'cover_image' => $record->book->cover_image,
+                    'status' => $record->status,
+                    'started_at' => $record->started_at,
+                    'completed_at' => $record->completed_at,
+                    'user_rating' => $record->user_rating,
+                    'review' => $record->review,
+                ];
+            });
+        $user = User::with('profile')->find($userId);
+         if ($isCompleted && $challenge->badge_id) {
+            $hasBadge = UserBadge::where('user_id', $userId)
+                ->where('badge_id', $challenge->badge_id)
+                ->where('challenge_id', $challengeId)
+                ->exists();
 
+            if (!$hasBadge) {
+                UserBadge::create([
+                    'user_id' => $userId,
+                    'badge_id' => $challenge->badge_id,
+                    'earned_at' => now(),
+                    'challenge_id' => $challengeId,
+                ]);
+            }
+        }
         return [
             'challenge_id' => $challengeId,
+
+            'user' => $user,
             'challenge_name' => $challenge->name,
             'start_date' => $challenge->start_date,
             'end_date' => $challenge->end_date,
             'total_books' => $totalBooks,
             'books_read' => $completedBooks,
+            'books' => $books,
             'books_remaining' => max(0, $totalBooks - $completedBooks),
             'percentage' => $totalBooks > 0 ? round(($completedBooks / $totalBooks) * 100, 2) : 0,
             'is_completed' => $isCompleted,
@@ -271,14 +374,13 @@ class ChallengeService implements ChallengeServiceInterface
             ->where('status', 'completed')
             ->groupBy('user_id')
             ->orderBy('books_read', 'desc')
-            ->with('user')
+            ->with(['user', 'user.profile'])
             ->get();
-
         return $leaderboard->map(function ($item) {
             return [
                 'user' => [
                     'id' => $item->user->id,
-                    'name' => $item->user->name,
+                    'profile' => $item->user->profile ? new UserProfileApiResource($item->user->profile) : null,
                     'username' => $item->user->username,
                 ],
                 'books_read' => $item->books_read,
@@ -293,52 +395,10 @@ class ChallengeService implements ChallengeServiceInterface
             ->exists();
     }
 
-    private function assignNextBook(int $userId, int $challengeId): void
-    {
-        $challenge = ReadingChallenge::with('books')->findOrFail($challengeId);
-        $completedBookIds = UserChallengeBook::where('user_id', $userId)
-            ->where('challenge_id', $challengeId)
-            ->where('status', 'completed')
-            ->pluck('book_id')
-            ->toArray();
-
-        // Find the next book that hasn't been completed, ordered by creation time
-        $nextBook = ChallengeBook::where('reading_challenge_id', $challengeId)
-            ->whereNotIn('book_id', $completedBookIds)
-            ->orderBy('created_at', 'asc')
-            ->first();
-
-        $totalBooks = ChallengeBook::where('reading_challenge_id', $challengeId)->count();
-        $completedBooks = count($completedBookIds);
-
-        if ($completedBooks >= $totalBooks && $challenge->badge_id) {
-            // Award badge if all books are completed
-            UserBadge::firstOrCreate(
-                [
-                    'user_id' => $userId,
-                    'badge_id' => $challenge->badge_id,
-                    'challenge_id' => $challengeId,
-                ],
-                ['earned_at' => now()]
-            );
-            return;
-        }
-
-        if ($nextBook) {
-            UserChallengeBook::create([
-                'user_id' => $userId,
-                'challenge_id' => $challengeId,
-                'book_id' => $nextBook->book_id,
-                'status' => 'reading',
-                'started_at' => now(),
-            ]);
-        }
-    }
- public function getChallengeParticipantsProgress(int $challengeId, int $perPage = 15, int $page = 1): LengthAwarePaginator
+    public function getChallengeParticipantsProgress(int $challengeId, int $perPage = 15, int $page = 1): LengthAwarePaginator
     {
         $challenge = ReadingChallenge::findOrFail($challengeId);
 
-        // Get paginated users who have joined the challenge
         $participants = $challenge->participants()->paginate($perPage, ['*'], 'page', $page);
 
         $participants->getCollection()->transform(function ($user) use ($challenge) {
@@ -372,18 +432,15 @@ class ChallengeService implements ChallengeServiceInterface
         $failedIds = [];
 
         DB::transaction(function () use ($challengeIds, $updateData, &$successCount, &$failureCount, &$failedIds) {
-            // Validate all challenge IDs exist first
             $existingChallenges = ReadingChallenge::whereIn('id', $challengeIds)->pluck('id');
             $nonExistentIds = array_diff($challengeIds, $existingChallenges->toArray());
 
             if (!empty($nonExistentIds)) {
                 $failureCount = count($nonExistentIds);
                 $failedIds = $nonExistentIds;
-                // Stop the transaction by throwing an exception if any ID is invalid.
                 throw new \Exception('Invalid challenge IDs provided.');
             }
 
-            // Perform the update
             $updatedRows = ReadingChallenge::whereIn('id', $challengeIds)->update($updateData);
             $successCount = $updatedRows;
         });
@@ -404,8 +461,6 @@ class ChallengeService implements ChallengeServiceInterface
 
     public function resetUserProgress(int $challengeId, int $userId): void
     {
-        // This is destructive. It removes all progress for the user in this challenge.
-        // It also revokes the badge if earned from this challenge.
         DB::transaction(function () use ($challengeId, $userId) {
             UserChallengeBook::where('challenge_id', $challengeId)
                 ->where('user_id', $userId)
@@ -442,27 +497,47 @@ class ChallengeService implements ChallengeServiceInterface
             ->delete();
     }
 
-    public function getChallengeStats(): array
+   private function assignNextBook(int $userId, int $challengeId): void
     {
-        $activeChallenges = ReadingChallenge::where('is_active', true)->count();
-        $totalParticipants = DB::table('user_challenge_books')->distinct('user_id')->count('user_id');
+        $challenge = ReadingChallenge::with('books')->findOrFail($challengeId);
+        $completedBookIds = UserChallengeBook::where('user_id', $userId)
+            ->where('challenge_id', $challengeId)
+            ->where('status', 'completed')
+            ->pluck('book_id')
+            ->toArray();
 
-        $completions = UserBadge::whereNotNull('challenge_id')->count();
+        $totalBooks = ChallengeBook::where('reading_challenge_id', $challengeId)->count();
+        $completedBooks = count($completedBookIds);
 
-        $mostPopular = ReadingChallenge::withCount('participants')
-            ->orderBy('participants_count', 'desc')
-            ->first();
+        if ($completedBooks >= $totalBooks && $challenge->badge_id) {
+            UserBadge::firstOrCreate(
+                [
+                    'user_id' => $userId,
+                    'badge_id' => $challenge->badge_id,
+                    'challenge_id' => $challengeId,
+                ],
+                ['earned_at' => now()]
+            );
+            return;
+        }
 
-        return [
-            'total_challenges' => ReadingChallenge::count(),
-            'active_challenges' => $activeChallenges,
-            'total_participants' => $totalParticipants,
-            'total_challenge_completions' => $completions,
-            'most_popular_challenge' => $mostPopular ? [
-                'id' => $mostPopular->id,
-                'name' => $mostPopular->name,
-                'participant_count' => $mostPopular->participants_count,
-            ] : null,
-        ];
+        // Get all challenge books ordered by created_at
+        $challengeBooks = ChallengeBook::where('reading_challenge_id', $challengeId)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        foreach ($challengeBooks as $book) {
+            // Check if user already has this book in their challenge reading list
+            $exists = UserChallengeBook::where('user_id', $userId)
+                ->where('challenge_id', $challengeId)
+                ->where('book_id', $book->book_id)
+                ->exists();
+
+            if (!$exists) {
+                $this->addUserBookToChallenge($challengeId, $userId, $book->book_id, 'reading', true);
+                break;
+            }
+        }
     }
 }
+

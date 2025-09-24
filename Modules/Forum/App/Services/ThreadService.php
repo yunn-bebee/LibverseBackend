@@ -2,12 +2,14 @@
 
 namespace Modules\Forum\App\Services;
 
+use App\Enums\UserRole;
 use App\Models\Forum;
 use App\Models\Thread;
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Modules\Forum\App\Contracts\ThreadServiceInterface;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Modules\Forum\App\Contracts\ThreadServiceInterface;
 
 class ThreadService implements ThreadServiceInterface
 {
@@ -33,8 +35,7 @@ class ThreadService implements ThreadServiceInterface
             $user,
             'Thread Created',
             "You've created the thread '{$thread->title}' in '{$forum->name}' Start posting now!.",
-            url("/threads/{$thread->id}"),
-            'View Thread'
+           
         );
 
         return $thread;
@@ -45,6 +46,12 @@ class ThreadService implements ThreadServiceInterface
      */
     public function getByForum(Forum $forum, array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
+            if (!$forum->is_public) {
+        $userId = Auth::id();
+        if (!$userId || !$forum->members()->where('users.id', $userId)->exists() || User::find($userId)->hasRole(UserRole::MEMBER->label())) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('You must be a member to access threads in this private forum.');
+        }
+    }
         $query = Thread::where('forum_id', $forum->id)
             ->with(['user', 'user.profile', 'book'])
             ->withCount('posts');
@@ -124,7 +131,7 @@ class ThreadService implements ThreadServiceInterface
             url("/forums/{$thread->forum_id}"),
             'View Forum'
         );
-        
+
         Log::info('Thread deleted', [
             'thread_id' => $thread->id,
             'user_id' => $user->id,

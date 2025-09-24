@@ -22,7 +22,12 @@ class User extends Authenticatable
 
     protected $hidden = ['password', 'remember_token'];
 
-
+   public function forums()
+    {
+        return $this->belongsToMany(Forum::class, 'forum_user')
+                    ->withPivot('status', 'approved_at')
+                    ->withTimestamps();
+    }
     // Approval status checks
     public function isPending(): bool
     {
@@ -135,10 +140,10 @@ class User extends Authenticatable
         return $this->hasMany(Notification::class);
     }
 
-    public function mentions()
-    {
-        return $this->hasMany(Mention::class);
-    }
+    // public function mentions()
+    // {
+    //     return $this->hasMany(Mention::class);
+    // }
 
     public function followers()
     {

@@ -55,24 +55,24 @@ class AuthService implements AuthServiceInterface
         }
 
         $user = $this->guard->user();
-        
+
         if ($user->approval_status === 'pending') {
             $this->guard->logout();
             abort(403, 'Account pending moderator approval');
         }
-        
+
         if ($user->approval_status === 'rejected') {
             $this->guard->logout();
             abort(403, 'Account rejected by moderators');
         }
 
-        $expiration = $credentials['remember_me'] ?? false 
-            ? Carbon::now()->addDays(30) 
+        $expiration = $credentials['remember_me'] ?? false
+            ? Carbon::now()->addDays(30)
             : Carbon::now()->addHours(2);
 
         $token = $user->createToken(
-            'auth_token', 
-            ['*'], 
+            'auth_token',
+            ['*'],
             $expiration
         )->plainTextToken;
 
@@ -88,7 +88,7 @@ class AuthService implements AuthServiceInterface
     {
         // Get the authenticated user first
         $user = $this->guard->user();
-        
+
         if ($user) {
             $user->token()->revoke();
         }
@@ -129,4 +129,5 @@ class AuthService implements AuthServiceInterface
             'rejected_at' => now(),
         ]);
     }
+  
 }

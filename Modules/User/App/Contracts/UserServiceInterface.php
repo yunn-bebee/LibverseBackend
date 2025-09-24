@@ -26,4 +26,6 @@ interface UserServiceInterface
     public function adminStats(): array;
     public function warnUser($uuid, $request);
 
+    public function me(): User;
+
  }

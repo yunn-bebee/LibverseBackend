@@ -68,6 +68,7 @@ class UserApiController extends Controller
     public function store(StoreUserApiRequest $request): JsonResponse
     {
         try {
+
             $result = $this->userService->save($request->validated());
 
             if (!$result['success']) {
@@ -89,10 +90,19 @@ class UserApiController extends Controller
         }
     }
 
-    public function update(UpdateUserApiRequest $request, User $user): JsonResponse
+    public function update(Request $request, User $user): JsonResponse
     {
         try {
-            $result = $this->userService->update($user->id, $request->validated());
+            $validated = validator($request->all(), [
+                'username' => 'sometimes|string|max:255|unique:users,username,'.$user->id,
+                'email' => 'sometimes|email|unique:users,email,'.$user->id,
+                'password' => 'sometimes|string|min:8',
+                'role' => 'sometimes|string|in:admin,moderator,member',
+                'date_of_birth' => 'nullable|date',
+                'approval_status' => 'sometimes|string|in:pending,approved,rejected',
+            ])->validate();
+
+            $result = $this->userService->update($user->id, $validated);
 
             if (!$result['success']) {
                 return errorResponse(
@@ -254,5 +264,14 @@ class UserApiController extends Controller
         success: true,
         message: 'User warned successfully'
     );
+}
+public function me(): JsonResponse
+{
+    try {
+        $user = $this->userService->me();
+        return apiResponse(true, 'Authenticated user retrieved successfully', new UserApiResource($user));
+    } catch (\Exception $e) {
+        return errorResponse($e->getMessage(), [], $e->getCode() ?: 500);
+    }
 }
 }

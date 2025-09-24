@@ -13,33 +13,71 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Modules\Notification\App\Notifications\GenericNotification;
 use Modules\Notification\App\Notifications\PostReportedNotification;
 use Modules\Post\App\Contracts\PostServiceInterface;
 
+
 class PostService implements PostServiceInterface
 {
-    public function create(Thread $thread, array $data): Post
+   public function create(Thread $thread, array $data, array $files = []): Post
     {
         if ($thread->is_locked) {
             throw new \Exception('Cannot create post in a locked thread.');
         }
 
         $post = new Post($data);
-        // $post->uuid = Str::uuid();
+        $post->uuid = Str::uuid();
         $post->thread_id = $thread->id;
         $post->user_id = Auth::id();
         $post->parent_post_id = $data['parent_post_id'] ?? null;
         $post->save();
 
+        // Handle media uploads if provided
+        if (!empty($files)) {
+            foreach ($files as $fileData) {
+                $this->uploadMedia($post, $fileData);
+            }
+        }
+           // Send notification
+        $user = Auth::user();
+        $user->notify(new GenericNotification(
+            $user,
+            'Post Created',
+            "You've created a new post in thread '{$thread->title}'."
+        ));
+
         Log::info('Post created', [
             'post_id' => $post->id,
-            // 'uuid' => $post->uuid,
             'thread_id' => $thread->id,
             'user_id' => Auth::id(),
             'parent_post_id' => $post->parent_post_id,
         ]);
 
         return $post->load(['user', 'book', 'media', 'replies']);
+    }
+    public function getSavedPosts(int $perPage = 15): LengthAwarePaginator
+    {
+        $user = Auth::user();
+        if (!$user) {
+            throw new \Exception('Unauthorized to view saved posts.', 401);
+        }
+
+        return Post::whereHas('saves', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })
+            ->with([
+                'user',
+                'user.profile',
+                'thread',
+                'thread.forum',
+                'media',
+                'replies.user',
+                'replies.user.profile',
+                'replies.media',
+            ])
+            ->withCount(['likes', 'saves', 'replies'])
+            ->paginate($perPage);
     }
 
     public function getByThread(Thread $thread, array $filters = [], int $perPage = 20): LengthAwarePaginator
@@ -90,7 +128,7 @@ class PostService implements PostServiceInterface
             'replies.replies.media'
         ])
         ->withCount(['likes', 'saves', 'replies'])
-        ->where('uuid', $id)
+        ->where('id', $id)
         ->firstOrFail();
     }
 
@@ -103,10 +141,16 @@ class PostService implements PostServiceInterface
 
         $post->update($data);
         $post->load(['user', 'book', 'media', 'replies']);
+          // Send notification
+        $user->notify(new GenericNotification(
+            $user,
+            'Post Updated',
+            "You've updated your post in thread '{$post->thread->title}'.",
 
+        ));
         Log::info('Post updated', [
             'post_id' => $post->id,
-            'uuid' => $post->uuid,
+            'id' => $post->id,
             'user_id' => $user->id,
         ]);
 
@@ -131,10 +175,16 @@ class PostService implements PostServiceInterface
         }
 
         $result = $post->delete();
+         // Send notification
+        $user->notify(new GenericNotification(
+            $user,
+            'Post Deleted',
+            "You've deleted your post from thread '{$post->thread->title}'.",
 
+        ));
         Log::info('Post deleted', [
             'post_id' => $post->id,
-            'uuid' => $post->uuid,
+            'id' => $post->id,
             'user_id' => $user->id,
         ]);
 
@@ -150,10 +200,10 @@ class PostService implements PostServiceInterface
 
         if ($like) {
             $post->likes()->syncWithoutDetaching([$user->id]);
-            Log::info('Post liked', ['post_id' => $post->id, 'uuid' => $post->uuid, 'user_id' => $user->id]);
+            Log::info('Post liked', ['post_id' => $post->id, 'id' => $post->id, 'user_id' => $user->id]);
         } else {
             $post->likes()->detach($user->id);
-            Log::info('Post unliked', ['post_id' => $post->id, 'uuid' => $post->uuid, 'user_id' => $user->id]);
+            Log::info('Post unliked', ['post_id' => $post->id, 'id' => $post->id, 'user_id' => $user->id]);
         }
 
         return true;
@@ -168,10 +218,10 @@ class PostService implements PostServiceInterface
 
         if ($save) {
             $post->saves()->syncWithoutDetaching([$user->id]);
-            Log::info('Post saved', ['post_id' => $post->id, 'uuid' => $post->uuid, 'user_id' => $user->id]);
+            Log::info('Post saved', ['post_id' => $post->id, 'id' => $post->id, 'user_id' => $user->id]);
         } else {
             $post->saves()->detach($user->id);
-            Log::info('Post unsaved', ['post_id' => $post->id, 'uuid' => $post->uuid, 'user_id' => $user->id]);
+            Log::info('Post unsaved', ['post_id' => $post->id, 'id' => $post->id, 'user_id' => $user->id]);
         }
 
         return true;
@@ -185,7 +235,7 @@ class PostService implements PostServiceInterface
         }
 
         $comment = new Post($data);
-        $comment->uuid = Str::uuid();
+          $comment->uuid = Str::uuid();
         $comment->thread_id = $post->thread_id;
         $comment->user_id = $user->id;
         $comment->parent_post_id = $post->id;
@@ -193,7 +243,7 @@ class PostService implements PostServiceInterface
 
         Log::info('Comment created', [
             'post_id' => $comment->id,
-            'uuid' => $comment->uuid,
+            'id' => $comment->id,
             'parent_post_id' => $post->id,
             'user_id' => $user->id,
         ]);
@@ -223,14 +273,26 @@ class PostService implements PostServiceInterface
             'is_flagged' => true,
             'flagged_at' => now(),
         ]);
+          // Notify user of report submission
+        $user->notify(new GenericNotification(
+            $user,
+            'Post Reported',
+            "You've reported a post in thread '{$post->thread->title}'.",
 
+        ));
         // Notify moderators and admins
         // $moderators = User::role(['moderator', 'admin'])->get();
         // Notification::send($moderators, new PostReportedNotification($post, $report));
+       User::find(1)->notify( new GenericNotification(
+            User::find(1),
+            'Post Reported',
+            "A post has been reported in thread '{$post->thread->title}'.",
+
+        ));
 
         Log::info('Post reported', [
             'post_id' => $post->id,
-            'uuid' => $post->uuid,
+            'id' => $post->id,
             'report_id' => $report->id,
             'user_id' => $user->id,
         ]);
@@ -252,10 +314,14 @@ class PostService implements PostServiceInterface
             throw new \Exception('Unauthorized to flag post.');
         }
 
-        // Only moderators/admins can flag/unflag posts
-        if (!$user->hasAnyRole(['moderator', 'admin'])) {
-            throw new \Exception('Unauthorized to flag post.');
-        }
+        $postOwner = User::find($post->user_id);
+
+            $postOwner->notify(new GenericNotification(
+                $postOwner,
+                'Post Flagged for not following the guidelines',
+                "Your post '{$post->title}' in thread '{$post->thread->title}' has been flagged for not following the community guidelines."
+            ));
+
 
         $post->is_flagged = !$post->is_flagged;
         $post->save();
@@ -272,9 +338,7 @@ class PostService implements PostServiceInterface
     public function unflag(Post $post): void
     {
         $user = Auth::user();
-        if (!$user || !$user->hasAnyRole(['moderator', 'admin'])) {
-            throw new \Exception('Unauthorized to unflag post.', 403);
-        }
+
 
         $post->reports()->where('status', 'pending')->update([
             'status' => 'dismissed',
@@ -286,10 +350,16 @@ class PostService implements PostServiceInterface
             'is_flagged' => false,
             'flagged_at' => null,
         ]);
+        $postOwner = User::find($post->user_id);
 
+            $postOwner->notify(new GenericNotification(
+                $postOwner,
+                'Post Unflagged',
+                "Your post '{$post->title}' in thread '{$post->thread->title}' has been unflagged."
+            ));
         Log::info('Post unflagged', [
             'post_id' => $post->id,
-            'uuid' => $post->uuid,
+            'id' => $post->id,
             'user_id' => $user->id,
         ]);
     }
@@ -332,7 +402,7 @@ class PostService implements PostServiceInterface
         Log::info('Media uploaded', [
             'media_id' => $media->id,
             'post_id' => $post->id,
-            'uuid' => $post->uuid,
+            'id' => $post->id,
             'user_id' => $user->id,
         ]);
 
@@ -344,7 +414,90 @@ class PostService implements PostServiceInterface
             'caption' => $media->caption,
         ];
     }
+ public function updateMedia(Media $media, array $data): array
+    {
+        $user = Auth::user();
+        if (!$user || $media->user_id !== $user->id) {
+            throw new \Exception('Unauthorized to update media.', 403);
+        }
 
+        $updates = [];
+        if (isset($data['file'])) {
+            $file = $data['file'];
+            $allowedTypes = ['jpg', 'jpeg', 'png', 'mp4', 'pdf'];
+            $extension = $file->getClientOriginalExtension();
+
+            if (!in_array(strtolower($extension), $allowedTypes)) {
+                throw new \Exception('Invalid file type. Allowed: JPG, PNG, MP4, PDF.', 400);
+            }
+
+            // Delete old files
+            if (Storage::disk('public')->exists($media->file_url)) {
+                Storage::disk('public')->delete($media->file_url);
+            }
+            if ($media->thumbnail_url && Storage::disk('public')->exists($media->thumbnail_url)) {
+                Storage::disk('public')->delete($media->thumbnail_url);
+            }
+
+            $path = $file->store('media', 'public');
+            $fileUrl = Storage::url($path);
+
+            $thumbnailUrl = null;
+            if (in_array($extension, ['jpg', 'jpeg', 'png'])) {
+                $thumbnailUrl = $fileUrl;
+            } elseif ($extension === 'mp4') {
+                $thumbnailUrl = $this->generateVideoThumbnail($fileUrl);
+            }
+
+            $updates['file_url'] = $fileUrl;
+            $updates['file_type'] = $extension;
+            $updates['thumbnail_url'] = $thumbnailUrl;
+        }
+
+        if (isset($data['caption'])) {
+            $updates['caption'] = $data['caption'];
+        }
+
+        $media->update($updates);
+
+        Log::info('Media updated', [
+            'media_id' => $media->id,
+            'post_id' => $media->post_id,
+            'user_id' => $user->id,
+        ]);
+
+        return [
+            'id' => $media->id,
+            'file_url' => $media->file_url,
+            'file_type' => $media->file_type,
+            'thumbnail_url' => $media->thumbnail_url,
+            'caption' => $media->caption,
+        ];
+    }
+        public function deleteMedia(Media $media): bool
+    {
+        $user = Auth::user();
+        if (!$user || ($media->user_id !== $user->id && !$user->hasAnyRole(['moderator', 'admin']))) {
+            throw new \Exception('Unauthorized to delete media.', 403);
+        }
+
+        if (Storage::disk('public')->exists($media->file_url)) {
+            Storage::disk('public')->delete($media->file_url);
+        }
+        if ($media->thumbnail_url && Storage::disk('public')->exists($media->thumbnail_url)) {
+            Storage::disk('public')->delete($media->thumbnail_url);
+        }
+
+        $result = $media->delete();
+
+        Log::info('Media deleted', [
+            'media_id' => $media->id,
+            'post_id' => $media->post_id,
+            'user_id' => $user->id,
+        ]);
+
+        return $result;
+    }
     protected function generateVideoThumbnail(string $fileUrl): ?string
     {
         try {

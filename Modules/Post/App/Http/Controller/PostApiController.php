@@ -2,16 +2,19 @@
 
 namespace Modules\Post\App\Http\Controller;
 
-use App\Http\Controllers\Controller;
+use App\Enums\UserRole;
 use App\Models\Post;
+use App\Models\Media;
 use App\Models\Thread;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Modules\Post\App\Contracts\PostServiceInterface;
+use Illuminate\Http\JsonResponse;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 use Modules\Post\App\Http\Requests\PostRequest;
-use Modules\Post\App\Http\Requests\PostActionRequest;
-use Modules\Post\App\Http\Requests\MediaRequest;
 use Modules\Post\App\Resources\PostApiResource;
+use Modules\Post\App\Http\Requests\MediaRequest;
+use Modules\Post\App\Contracts\PostServiceInterface;
+use Modules\Post\App\Http\Requests\PostActionRequest;
 
 class PostApiController extends Controller
 {
@@ -41,26 +44,47 @@ class PostApiController extends Controller
         }
     }
 
-    public function store(Thread $thread, PostRequest $request): JsonResponse
+ public function store(Thread $thread, Request $request): JsonResponse
     {
         try {
-            $post = $this->postService->create($thread, $request->validated());
+            $data = $request->all();
+            $files = $request->hasFile('files') ? $request->file('files') : [];
+            $fileData = [];
+            if (!is_array($files)) {
+                $files = $files ? [$files] : [];
+            }
+            foreach ($files as $index => $file) {
+                $fileData[] = [
+                    'file' => $file,
+                    'caption' => $request->input("files_captions.$index", null),
+                ];
+            }
+            $post = $this->postService->create($thread, $data, $fileData);
             return apiResponse(true, 'Post created successfully', new PostApiResource($post), 201);
         } catch (\Exception $e) {
-            return apiResponse(false, $e->getMessage(), null,  400);
+            return apiResponse(false, $e->getMessage(), null, 400);
         }
     }
-
-    public function show(Post $post): JsonResponse
+    public function updateMedia(Media $media, MediaRequest $request): JsonResponse
     {
         try {
-            $post = $this->postService->find($post->uuid);
+            $media = $this->postService->updateMedia($media, $request->validated());
+            return apiResponse(true, 'Media updated successfully', ['media' => $media], 200);
+        } catch (\Exception $e) {
+            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 400);
+        }
+    }
+    public function show(Post $post , Request $request): JsonResponse
+    {
+        try {
+
+            $post = $this->postService->find($post->id);
             if (!$post) {
                 return apiResponse(false, 'Post not found', null, 404);
             }
             return apiResponse(true, 'Post retrieved successfully', new PostApiResource($post));
         } catch (\Exception $e) {
-            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 500);
+            return apiResponse(false, $e->getMessage(), null,  500);
         }
     }
 
@@ -114,7 +138,7 @@ class PostApiController extends Controller
             $comment = $this->postService->createComment($post, $request->validated());
             return apiResponse(true, 'Comment created successfully', new PostApiResource($comment), 201);
         } catch (\Exception $e) {
-            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 400);
+            return apiResponse(false, $e->getMessage(), null,  400);
         }
     }
 
@@ -138,9 +162,21 @@ class PostApiController extends Controller
             return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 400);
         }
     }
+        public function deleteMedia(Media $media): JsonResponse
+    {
+        try {
+            $this->postService->deleteMedia($media);
+            return apiResponse(true, 'Media deleted successfully', null, 204);
+        } catch (\Exception $e) {
+            return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 400);
+        }
+    }
     public function reportedPosts(Request $request): JsonResponse
     {
         try {
+            if (Auth::user()->role === UserRole::MEMBER->label()) {
+                return apiResponse(false, "user is not allowed", null, 403);
+            }
             $perPage = $request->input('per_page', 15);
             $posts = $this->postService->getReportedPosts($perPage);
             return apiResponse(
@@ -170,6 +206,22 @@ class PostApiController extends Controller
             return apiResponse(true, 'Post reported successfully', $report, 201);
         } catch (\Exception $e) {
             return apiResponse(false, $e->getMessage(), null, $e->getCode() ?: 400);
+        }
+    }
+        public function savedPosts(Request $request): JsonResponse
+    {
+        try {
+            $perPage = $request->input('per_page', 15);
+            $posts = $this->postService->getSavedPosts($perPage);
+            return apiResponse(
+                success: true,
+                message: 'Saved posts retrieved successfully',
+                data: PostApiResource::collection($posts),
+                errors: [],
+                paginator: $posts
+            );
+        } catch (\Exception $e) {
+            return apiResponse(false, $e->getMessage(), null, statusCode: 500);
         }
     }
 }
