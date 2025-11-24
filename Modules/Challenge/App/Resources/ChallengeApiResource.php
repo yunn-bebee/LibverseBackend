@@ -48,7 +48,7 @@ class ChallengeApiResource extends JsonResource
         if ($this->has_joined) {
             $response['start_date'] = $this->start_date;
             $response['end_date'] = $this->end_date;
-            $response['progress'] = $this->progress ? new UserProgressResource($this->userProgress) : null;
+            $response['progress'] = $this->progress ;
         }
 
         return $response;

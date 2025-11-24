@@ -25,11 +25,38 @@ use App\Models\UserProfile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\File;
 
 class DatabaseSeeder extends Seeder
 {
+        /**
+     * Create necessary public storage directories
+     */
+    private function createPublicDirectories()
+    {
+        $directories = [
+            'badges',
+            'profiles',
+            'media/images',
+            'media/videos',
+            'media/documents',
+            'books/covers',
+            'events',
+        ];
+
+        foreach ($directories as $directory) {
+            $path = public_path("storage/{$directory}");
+            if (!File::exists($path)) {
+                File::makeDirectory($path, 0755, true);
+                $this->command->info("Created directory: storage/{$directory}");
+            }
+        }
+    }
     public function run()
     {
+         // Create necessary directories first
+        $this->createPublicDirectories();
+
         // Create admin user
         $admin = User::firstOrCreate(
             ['email' => 'admin@libiverse.com'],

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Challenge\App\Contracts\ChallengeServiceInterface;
+use Modules\Challenge\App\Resources\UserProgressResource;
 use Modules\User\App\Resources\UserProfileApiResource;
 
 
@@ -84,7 +85,7 @@ public function getAll(array $filters = [], int $perPage = 10, int $page = 1): L
         if (Auth::check() && $challenge) {
             $challenge->has_joined = $this->hasUserJoined(Auth::id(), $challenge->id);
             if ($challenge->has_joined) {
-                $challenge->progress = $this->getUserProgress(Auth::id(), $challenge->id);
+               $challenge->progress = $this->getUserProgress(Auth::id(), $challenge->id);
             }
         }
 

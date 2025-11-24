@@ -35,7 +35,7 @@ class ThreadService implements ThreadServiceInterface
             $user,
             'Thread Created',
             "You've created the thread '{$thread->title}' in '{$forum->name}' Start posting now!.",
-           
+        
         );
 
         return $thread;

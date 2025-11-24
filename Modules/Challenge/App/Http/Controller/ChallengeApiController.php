@@ -131,11 +131,11 @@ class ChallengeApiController extends Controller
         }
     }
 
-    public function removeUserBook(ChallengeBookRequest $request, string $challengeId): JsonResponse
+    public function removeUserBook(Request $request, string $challengeId): JsonResponse
     {
         try {
             $userId = Auth::id();
-            $validated = $request->validated();
+            $validated = $request;
 
             $this->challengeService->removeUserBookFromChallenge(
                 (int) $challengeId,
