@@ -15,6 +15,7 @@ use Modules\Post\App\Resources\PostApiResource;
 use Modules\Post\App\Http\Requests\MediaRequest;
 use Modules\Post\App\Contracts\PostServiceInterface;
 use Modules\Post\App\Http\Requests\PostActionRequest;
+use Modules\Post\App\Http\Requests\ReportPostRequest;
 
 class PostApiController extends Controller
 {
@@ -199,7 +200,7 @@ class PostApiController extends Controller
             return apiResponse(false, $e->getMessage(), null,  400);
         }
     }
-    public function report(Post $post, PostRequest $request): JsonResponse
+    public function report(Post $post, ReportPostRequest $request): JsonResponse
     {
         try {
             $report = $this->postService->reportPost($post, $request->validated());
