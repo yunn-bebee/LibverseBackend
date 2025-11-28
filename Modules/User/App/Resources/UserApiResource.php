@@ -30,7 +30,7 @@ class UserApiResource extends JsonResource
             'updatedAt' => $this->updated_at,
             'forum_status' => $this->whenPivotLoaded('forum_user', fn() => [
                 'status' => $this->pivot->status,
-                'approved_at' => $this->pivot->approved_at ? $this->pivot->approved_at->toDateTimeString() : null,
+                'approved_at' => $this->pivot->approved_at ? $this->pivot->approved_at : null,
             ]),
            'is_followed' => Auth::check() ? $this->followers()->where('follower_id', Auth::id())->exists() : false,
         ];

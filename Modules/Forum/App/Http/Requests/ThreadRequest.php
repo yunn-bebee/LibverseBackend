@@ -16,7 +16,7 @@ class ThreadRequest extends FormRequest
         return [
             'title' => 'required|string|max:255',
             'content' => 'required|string',
-            'post_type' => 'sometimes|string|in:discussion,text,image,video',
+            'post_type' => 'su',
             'book_id' => 'nullable|exists:books,id',
         ];
     }

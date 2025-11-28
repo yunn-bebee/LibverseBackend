@@ -11,7 +11,7 @@ class NotificationApiResource extends JsonResource
       return [
         'id' => $this->id,
         'type' => $this->getNotificationType(),
-        'title' => $this->data['title'] ,
+        'title' => $this->data['title'] ?? 'Notification',
         'message' => $this->data['message'] ?? '',
         'action_url' => $this->data['action_url'] ?? null,
         'action_text' => $this->data['action_text'] ?? 'View Details',

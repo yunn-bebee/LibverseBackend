@@ -35,7 +35,7 @@ class ThreadService implements ThreadServiceInterface
             $user,
             'Thread Created',
             "You've created the thread '{$thread->title}' in '{$forum->name}' Start posting now!.",
-        
+
         );
 
         return $thread;
@@ -48,9 +48,14 @@ class ThreadService implements ThreadServiceInterface
     {
             if (!$forum->is_public) {
         $userId = Auth::id();
-        if (!$userId || !$forum->members()->where('users.id', $userId)->exists() || User::find($userId)->hasRole(UserRole::MEMBER->label())) {
+        if (!$forum->members()->where('users.id', $userId)->exists() && User::find($userId)->hasRole(UserRole::MEMBER->label())) {
             throw new \Illuminate\Auth\Access\AuthorizationException('You must be a member to access threads in this private forum.');
+        }if(User::find($userId)->hasRole(UserRole::ADMIN->label()) || User::find($userId)->hasRole(UserRole::MODERATOR->label())){
+            // Admins and Moderators have access
+
+
         }
+
     }
         $query = Thread::where('forum_id', $forum->id)
             ->with(['user', 'user.profile', 'book'])

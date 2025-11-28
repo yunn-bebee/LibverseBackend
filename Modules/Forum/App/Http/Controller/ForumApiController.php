@@ -320,9 +320,13 @@ class ForumApiController extends Controller
      */
     protected function authorizeCreatorOrAdmin(Forum $forum): void
     {
-        $user = Auth::user();
-        if (!$user || ($forum->created_by !== $user->id && !$user->hasRole(UserRole::ADMIN->label()))) {
+        $userid = Auth::id();
+        if (User::find($userid)->hasRole(UserRole::ADMIN->label())){
+            return;
+        }
+        if (($forum->created_by !== $userid && User::find($userid)->hasRole(UserRole::MEMBER->label()))) {
             throw new \Exception('Unauthorized to perform this action', 403);
         }
+
     }
 }

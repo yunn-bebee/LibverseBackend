@@ -25,8 +25,8 @@ public function getAll(array $filters = [], int $perPage = 10, int $page = 1): L
     $query = ReadingChallenge::with(['badge', 'books', 'creator', 'participants']);
 
     if (isset($filters['active'])) {
-        $query->where('start_date', '<=', now('Asia/Tokyo'))
-              ->where('end_date', '>=', now('Asia/Tokyo'));
+        $query->where('start_date', '<=', now())
+              ->where('end_date', '>=', now());
     }
 
     if (isset($filters['current'])) {

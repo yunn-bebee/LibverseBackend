@@ -207,15 +207,15 @@ public function getAll(array $filters = [], int $perPage = 20, int $page = 1): L
     /**
      * List forum members and join requests with status.
      */
-    public function getForumMembers(Forum $forum, int $perPage = 15): LengthAwarePaginator
-    {
-        return $forum->joinRequests()
-            ->with(['profile'])
-            ->withPivot('status', 'approved_at')
-            ->paginate($perPage);
-    }
-
-
+ public function getForumMembers(Forum $forum, int $perPage = 15): LengthAwarePaginator
+{
+    return $forum->membersAndRequests()
+        ->with(['profile'])
+        ->withPivot('status', 'approved_at')
+        ->orderBy('forum_user.status') // Optional: group by status
+        ->orderBy('forum_user.approved_at', 'desc')
+        ->paginate($perPage);
+}
     /**
      * Approve a join request for a private forum.
      */

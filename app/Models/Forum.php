@@ -39,7 +39,12 @@ class Forum extends Model
                     ->withTimestamps()
                     ->wherePivot('status', 'approved');
     }
-
+     public function membersAndRequests()
+    {
+        return $this->belongsToMany(User::class, 'forum_user')
+                    ->withPivot('status', 'approved_at')
+                    ->withTimestamps();
+    }
     public function joinRequests()
     {
         return $this->belongsToMany(User::class, 'forum_user')
