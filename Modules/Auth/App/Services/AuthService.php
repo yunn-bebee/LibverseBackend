@@ -129,5 +129,5 @@ class AuthService implements AuthServiceInterface
             'rejected_at' => now(),
         ]);
     }
-  
+
 }

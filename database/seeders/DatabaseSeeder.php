@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Models\Badge;
 use App\Models\Book;
 use App\Models\ChallengeBook;
-
 use App\Models\Event;
 use App\Models\EventRsvp;
 use App\Models\Forum;
@@ -29,7 +28,7 @@ use Illuminate\Support\Facades\File;
 
 class DatabaseSeeder extends Seeder
 {
-        /**
+    /**
      * Create necessary public storage directories
      */
     private function createPublicDirectories()
@@ -42,6 +41,12 @@ class DatabaseSeeder extends Seeder
             'media/documents',
             'books/covers',
             'events',
+            'preloaded/books',
+            'preloaded/profiles',
+            'preloaded/badges',
+            'preloaded/events',
+            'preloaded/media/images',
+            'preloaded/media/documents',
         ];
 
         foreach ($directories as $directory) {
@@ -52,10 +57,81 @@ class DatabaseSeeder extends Seeder
             }
         }
     }
+
+    /**
+     * Copy preloaded images to their respective directories
+     */
+    private function setupPreloadedImages()
+    {
+        $types = [
+            'books' => ['extension' => 'jpg', 'target' => 'books/covers', 'count' => 10],
+            'profiles' => ['extension' => 'jpg', 'target' => 'profiles', 'count' => 10],
+            'badges' => ['extension' => 'png', 'target' => 'badges', 'count' => 5],
+            'events' => ['extension' => 'jpg', 'target' => 'events', 'count' => 10],
+            'media/images' => ['extension' => 'jpg', 'target' => 'media/images', 'count' => 10],
+        ];
+
+        foreach ($types as $type => $config) {
+            for ($i = 1; $i <= $config['count']; $i++) {
+                $source = public_path("storage/preloaded/{$type}/{$i}.{$config['extension']}");
+                $destination = public_path("storage/{$config['target']}/{$i}.{$config['extension']}");
+
+                if (File::exists($source) && !File::exists($destination)) {
+                    File::copy($source, $destination);
+                    $this->command->info("Copied {$type} image: {$i}.{$config['extension']}");
+                }
+            }
+        }
+
+        // Copy document files
+        for ($i = 1; $i <= 5; $i++) {
+            $source = public_path("storage/preloaded/media/documents/{$i}.pdf");
+            $destination = public_path("storage/media/documents/{$i}.pdf");
+
+            if (File::exists($source) && !File::exists($destination)) {
+                File::copy($source, $destination);
+                $this->command->info("Copied document: {$i}.pdf");
+            }
+        }
+    }
+
+    /**
+     * Get random image path for different types
+     */
+    private function getRandomImage($type)
+    {
+        $counts = [
+            'books' => 10,
+            'profiles' => 10,
+            'badges' => 5,
+            'events' => 10,
+            'media' => 10
+        ];
+
+        $number = rand(1, $counts[$type] ?? 5);
+
+        if ($type === 'books') {
+            return "books/covers/{$number}.jpg";
+        }
+
+        if ($type === 'media') {
+            return "media/images/{$number}.jpg";
+        }
+
+        if ($type === 'badges') {
+            return "badges/{$number}.png";
+        }
+
+        return "{$type}/{$number}.jpg";
+    }
+
     public function run()
     {
-         // Create necessary directories first
+        // Create necessary directories first
         $this->createPublicDirectories();
+
+        // Copy preloaded images
+        $this->setupPreloadedImages();
 
         // Create admin user
         $admin = User::firstOrCreate(
@@ -87,9 +163,9 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // Create your specific member user (replace 'your.email@example.com' with your actual email if needed)
+        // Create your specific member user
         $specificMember = User::firstOrCreate(
-            ['email' => 'yunn.beebee@gmail.com'], // Change this to your email if desired
+            ['email' => 'yunn.beebee@gmail.com'],
             [
                 'member_id' => 'AYA232323',
                 'uuid' => Str::uuid(),
@@ -112,22 +188,21 @@ class DatabaseSeeder extends Seeder
         // All users collection
         $allUsers = collect([$admin, $moderator, $specificMember])->concat($additionalMembers);
 
-        // Create profiles for all users
+        // Create profiles for all users with real images
         $allUsers->each(function ($user) {
             UserProfile::firstOrCreate(
                 ['user_id' => $user->id],
                 [
                     'bio' => fake()->paragraph(),
-                    'profile_picture' => 'profiles/default.jpg',
+                    'profile_picture' => $this->getRandomImage('profiles'),
                     'website' => fake()->url(),
                     'location' => fake()->city(),
-
                     'last_active' => now(),
                 ]
             );
         });
 
-        // Create Libiverse-themed books (50 books, added by random users including moderator)
+        // Create Libiverse-themed books (50 books, added by random users including moderator) with real cover images
         $books = Book::factory(50)->create([
             'added_by' => fn() => rand(0, 4) === 0 ? $moderator->id : $allUsers->random()->id,
             'title' => fn() => fake()->randomElement([
@@ -141,6 +216,7 @@ class DatabaseSeeder extends Seeder
             ]),
             'author' => fn() => fake()->name(),
             'genres' => json_encode(fake()->randomElements(['Fiction', 'Non-Fiction', 'Sci-Fi', 'Fantasy', 'Mystery', 'Romance', 'History'], rand(1, 3))),
+            'cover_image' => $this->getRandomImage('books'),
         ]);
 
         // Create Libiverse-themed forums (20 forums, categories relevant to library discussions, created by moderator)
@@ -212,13 +288,28 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Create media (for random posts, 0-2 per post)
+        // Create media (for random posts, 0-2 per post) with real images
         foreach ($allPosts->random(50) as $post) {
-            Media::factory(rand(0, 2))->create([
-                'post_id' => $post->id,
-                'user_id' => $post->user_id,
-                'file_type' => fake()->randomElement(['image', 'video', 'document']),
-            ]);
+            $mediaCount = rand(0, 2);
+            for ($i = 0; $i < $mediaCount; $i++) {
+                $fileType = fake()->randomElement(['image', 'video', 'document']);
+
+                if ($fileType === 'image') {
+                    $filePath = $this->getRandomImage('media');
+                } elseif ($fileType === 'document') {
+                    $filePath = 'media/documents/' . rand(1, 5) . '.pdf';
+                } else {
+                    $filePath = 'media/videos/sample.mp4'; // Keep original for videos
+                }
+
+                Media::factory()->create([
+                    'post_id' => $post->id,
+                    'user_id' => $post->user_id,
+                    'file_type' => $fileType,
+                    'file_url' => $filePath,
+                    'thumbnail_url' =>$filePath
+                ]);
+            }
         }
 
         // Create post likes and saves (random likes/saves for posts)
@@ -244,13 +335,14 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Create events (15 library events, created by moderator)
+        // Create events (15 library events, created by moderator) with real images
         $events = Event::factory(15)->create([
             'created_by' => $moderator->id,
             'forum_id' => $forums->random()->id,
             'title' => fn() => fake()->randomElement([
                 'Book Reading Session', 'Author Meetup', 'Library Workshop', 'Poetry Night', 'Sci-Fi Discussion',
             ]),
+            'cover_image' => $this->getRandomImage('events'),
         ]);
 
         // Create RSVPs for events
@@ -267,11 +359,12 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // Create badges (20 library-themed badges)
+        // Create badges (20 library-themed badges) with real images
         $badges = Badge::factory(20)->create([
             'name' => fn() => fake()->randomElement([
                 'Bookworm', 'Challenge Master', 'Forum Contributor', 'Event Enthusiast', 'Review Guru',
             ]),
+            'icon_url' => $this->getRandomImage('badges'),
         ]);
 
         // Create reading challenges (5 challenges, created by moderator)
@@ -339,13 +432,14 @@ class DatabaseSeeder extends Seeder
             Notification::factory(rand(3, 7))->create([
                 'user_id' => $user->id,
                 'type' => fake()->randomElement(['like', 'comment', 'rsvp', 'mention', 'challenge_update']),
-                       ]);
+            ]);
         }
 
-        $this->command->info('✅ Libiverse database seeded successfully!');
+        $this->command->info('✅ Libiverse database seeded successfully with real images!');
         $this->command->info('👤 Admin: admin@libiverse.com / password');
         $this->command->info('👤 Moderator: moderator@libiverse.com / password');
-        $this->command->info('👤 Specific Member: member@libiverse.com / password (change email in seeder if needed)');
+        $this->command->info('👤 Specific Member: yunn.beebee@gmail.com / password');
         $this->command->info('👥 Additional Members: 17 created (password: password)');
+        $this->command->info('📚 All images now use real preloaded images from storage/preloaded/');
     }
 }
